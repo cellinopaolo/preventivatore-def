@@ -1,4 +1,4 @@
-// Configurazione Database Locale (Dexie.js)
+// --- CONFIGURAZIONE DATABASE ---
 const db = new Dexie("PreventiviDB");
 db.version(1).stores({ prodotti: "++id, category, range, name" });
 
@@ -69,7 +69,7 @@ async function renderInterfacciaCalcolo(cat, gamma) {
             <button onclick="eseguiCalcoloCommerciale()" class="w-full bg-blue-600 text-white py-5 rounded-[2rem] font-black uppercase italic shadow-xl active:scale-95 transition-all">Calcola Totale</button>
             <div id="risultato" class="hidden bg-slate-900 p-6 rounded-[2rem] text-white italic space-y-3 shadow-2xl">
                 <div class="flex justify-between text-[10px] uppercase opacity-60"><span>Sconto Composto</span> <span id="res-sconto-base"></span></div>
-                <div class="flex justify-between text-[10px] uppercase opacity-60"><span>Quantità Finale</span> <span id="res-pz"></span></div>
+                <div class="flex justify-between text-[10px] uppercase opacity-60"><span>Qtà Venduta</span> <span id="res-pz"></span></div>
                 <div class="flex justify-between text-[10px] uppercase opacity-60"><span>Vincolo Logistico</span> <span id="res-vincolo"></span></div>
                 <div class="flex justify-between items-end pt-2 border-t border-white/10"><span class="text-xs font-black uppercase text-blue-400">TOTALE FINALE</span><span id="res-p" class="text-3xl font-black tracking-tighter"></span></div>
                 <p id="iva-note" class="text-[8px] uppercase text-center opacity-40 pt-2"></p>
@@ -84,7 +84,7 @@ function toggleSfrido(val) {
     else box.classList.add('hidden');
 }
 
-// --- LOGICA DI CALCOLO COMMERCIALE ---
+// --- LOGICA DI CALCOLO COMMERCIALE (BLINDATA) ---
 function eseguiCalcoloCommerciale() {
     const p = JSON.parse(document.getElementById('select-prod').value);
     let mainQtyInput = parseFloat(document.getElementById('q-main').value) || 0;
@@ -96,67 +96,71 @@ function eseguiCalcoloCommerciale() {
     const isAngolare = p.name.includes("Angolare");
 
     let qtyLavorazione = mainQtyInput;
-    if (p.range === "Posa incerta") {
-        const finitura = document.getElementById('finitura-pietra').value;
-        if (finitura === 'secco') {
-            const percSfrido = parseFloat(document.getElementById('perc-sfrido').value) || 0;
-            qtyLavorazione = mainQtyInput * (1 + percSfrido / 100);
-        }
+    if (p.range === "Posa incerta" && document.getElementById('finitura-pietra').value === 'secco') {
+        const percSfrido = parseFloat(document.getElementById('perc-sfrido').value) || 0;
+        qtyLavorazione = mainQtyInput * (1 + percSfrido / 100);
     }
 
-    // Calcolo Quantità Finale e Vincoli
-    let qtyFinale;
+    let qtyVenduta = 0;
     let vincoloMsg = "";
-    const sfusoVal = (p.sfuso || "").toString().trim().toLowerCase();
+    let baseDisc = 45;
 
+    // --- LOGICA SPECIFICA PER GAMMA ---
     if (p.range === "Pannelli preassemblati") {
         const mqRichiesti = qtyLavorazione + extraQty;
-        qtyFinale = Math.ceil(mqRichiesti / p.m2_scatola) * p.m2_scatola;
+        const m2scat = parseFloat(p.m2_scatola) || 1;
+        qtyVenduta = Math.ceil(mqRichiesti / m2scat) * m2scat;
         vincoloMsg = "Arrotondamento Scatola";
-    } else if (p.range === "Posa incerta") {
-        qtyFinale = qtyLavorazione + extraQty;
-        vincoloMsg = "Vendita Libera";
-    } else if (p.range === "Fortis" || p.range === "Cotto") {
-        const pzRichiesti = (unitType === 'mq') ? Math.ceil((qtyLavorazione + extraQty) * p.pz_mq) : (qtyLavorazione + extraQty);
-        qtyFinale = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale;
-        vincoloMsg = "Bancale Intero";
-    } else {
-        // Logica standard per Mattoni
-        const pzRichiesti = (unitType === 'mq') ? Math.ceil((qtyLavorazione + extraQty) * p.pz_mq) : (qtyLavorazione + extraQty);
-        qtyFinale = pzRichiesti;
-        if (p.range === "Croma" && sfusoVal === 'no') {
-            qtyFinale = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale;
-            vincoloMsg = "Bancale Intero";
-        } else if (p.range === "Genesis") {
-            qtyFinale = (sfusoVal === 'no') ? Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale : Math.ceil(pzRichiesti / p.pz_scatola) * p.pz_scatola;
-            vincoloMsg = (sfusoVal === 'no') ? "Bancale Intero" : "Scatola Intera";
+        baseDisc = (qtyVenduta >= (parseFloat(p.m2_bancale) || 999)) ? 50 : 45;
+    } 
+    else if (p.range === "Posa incerta") {
+        const totalQty = qtyLavorazione + extraQty;
+        if (isAngolare) {
+            qtyVenduta = (unitType === 'auto') ? Math.ceil(totalQty * (p.pz_ml || 1)) : totalQty;
+            baseDisc = (qtyVenduta >= (p.pz_bancale || 999)) ? 50 : 45;
         } else {
-            vincoloMsg = "Vendita Libera";
+            qtyVenduta = totalQty;
+            baseDisc = (qtyVenduta >= (parseFloat(p.m2_bancale) || 999)) ? 50 : 45;
         }
-    }
+        vincoloMsg = "Vendita Libera";
+    } 
+    else {
+        // MATTONI (Genesis, Futura, Croma, Fortis, Cotto)
+        let pzMq = p.pz_mq;
+        if (p.range === "Fortis") {
+            pzMq = (document.getElementById('tipo-posa').value === "coltello") ? p.pz_mq_coltello : p.pz_mq_piatto;
+        }
+        let pzRichiesti = (unitType === 'mq') ? Math.ceil((qtyLavorazione + extraQty) * pzMq) : (qtyLavorazione + extraQty);
+        
+        qtyVenduta = pzRichiesti; 
+        vincoloMsg = "Vendita Libera";
 
-    // Logica Sconti
-    let baseDisc = 45;
-    if (p.range === "Pannelli preassemblati" || p.range === "Posa incerta") {
-        const mqPerSconto = (p.range === "Pannelli preassemblati") ? qtyFinale : qtyFinale;
-        baseDisc = (mqPerSconto >= (p.m2_bancale || 9999)) ? 50 : 45;
-    } else {
-        baseDisc = (qtyFinale >= p.pz_bancale) ? 50 : 45;
+        if (p.range === "Genesis") {
+            qtyVenduta = (p.sfuso === 'no') ? Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale : Math.ceil(pzRichiesti / p.pz_scatola) * p.pz_scatola;
+            vincoloMsg = (p.sfuso === 'no') ? "Bancale Intero" : "Scatola Intera";
+        } else if (p.range === "Croma" && p.sfuso === 'no') {
+            qtyVenduta = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale;
+            vincoloMsg = "Bancale Intero";
+        } else if (p.range === "Fortis" || p.range === "Cotto") {
+            qtyVenduta = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale;
+            vincoloMsg = "Bancale Intero";
+        }
+        baseDisc = (qtyVenduta >= p.pz_bancale) ? 50 : 45;
     }
 
     const priceScontato = p.price * (1 - baseDisc / 100) * (1 - extraDisc / 100);
-    const imponibile = (qtyFinale * priceScontato) + transport;
+    const imponibile = (qtyVenduta * priceScontato) + transport;
     const totale = isPrivato ? imponibile * 1.22 : imponibile;
 
     document.getElementById('risultato').classList.remove('hidden');
     document.getElementById('res-sconto-base').innerText = `${baseDisc}% + ${extraDisc}%`;
-    document.getElementById('res-pz').innerText = qtyFinale.toFixed(2) + (p.range === "Pannelli preassemblati" ? " m2" : " pz");
+    document.getElementById('res-pz').innerText = qtyVenduta.toFixed(2) + (p.range.includes("Pietra") || p.range === "Pannelli preassemblati" ? " mq/ml" : " pz");
     document.getElementById('res-vincolo').innerText = vincoloMsg;
     document.getElementById('res-p').innerText = "€" + totale.toLocaleString('it-IT', {minimumFractionDigits: 2});
     document.getElementById('iva-note').innerText = isPrivato ? "Incl. IVA 22% e Trasp." : "Escl. IVA, Incl. Trasp.";
 }
 
-// --- GESTIONE LISTINI ---
+// --- GESTIONE LISTINI (IMPORTAZIONE) ---
 async function importa(cat, gamma, e) {
     const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
@@ -164,15 +168,19 @@ async function importa(cat, gamma, e) {
         const text = event.target.result;
         const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
         const header = lines[0].split(/[,;]/).map(h => h.trim().toLowerCase());
-        const idx = { 
-            nome: header.indexOf("nome"), 
+        
+        const idx = {
+            nome: header.indexOf("nome"),
             prezzo: header.indexOf("prezzo_m2") !== -1 ? header.indexOf("prezzo_m2") : (header.indexOf("prezzo_pz") !== -1 ? header.indexOf("prezzo_pz") : header.indexOf("prezzo_unita")),
-            m2_scatola: header.indexOf("m2_scatola"),
-            m2_bancale: header.indexOf("m2_bancale"),
+            m2_scat: header.indexOf("m2_scatola"),
+            m2_banc: header.indexOf("m2_bancale"),
             pz_mq: header.indexOf("pz_m2"),
-            pz_scatola: header.indexOf("pz_scatola"),
-            pz_bancale: header.indexOf("pz_bancale"),
-            sfuso: header.indexOf("sfuso")
+            pz_ml: header.indexOf("pz_ml"),
+            pz_scat: header.indexOf("pz_scatola"),
+            pz_banc: header.indexOf("pz_bancale"),
+            sfuso: header.indexOf("sfuso"),
+            pz_mq_p: header.indexOf("pz_m2_piatto"),
+            pz_mq_c: header.indexOf("pz_m2_coltello")
         };
 
         const batch = [];
@@ -181,15 +189,26 @@ async function importa(cat, gamma, e) {
         for(let i = 1; i < lines.length; i++) {
             const c = lines[i].split(/[,;]/).map(val => val.trim());
             if (!c[idx.nome]) continue;
-            let item = { category: cat, range: gamma, name: c[idx.nome], price: parseFloat(c[idx.prezzo]?.replace(',', '.')) || 0, sfuso: idx.sfuso !== -1 ? c[idx.sfuso].toLowerCase() : 'no' };
-            
-            if (gamma === "Pannelli preassemblati") {
-                item.m2_scatola = parseFloat(c[idx.m2_scatola]?.replace(',', '.')) || 1;
-                item.m2_bancale = parseFloat(c[idx.m2_bancale]?.replace(',', '.')) || 999;
+
+            let item = { 
+                category: cat, range: gamma, name: c[idx.nome], 
+                price: parseFloat(c[idx.prezzo]?.replace(',', '.')) || 0,
+                sfuso: idx.sfuso !== -1 ? c[idx.sfuso].toLowerCase() : 'no'
+            };
+
+            if (gamma === "Pannelli preassemblati" || gamma === "Posa incerta") {
+                item.m2_scatola = parseFloat(c[idx.m2_scat]?.replace(',', '.')) || 1;
+                item.m2_bancale = parseFloat(c[idx.m2_banc]?.replace(',', '.')) || 999;
+                item.pz_ml = parseFloat(c[idx.pz_ml]?.replace(',', '.')) || 1;
+                item.pz_bancale = parseInt(c[idx.pz_banc]) || 1;
             } else {
                 item.pz_mq = parseFloat(c[idx.pz_mq]?.replace(',', '.')) || 1;
-                item.pz_scatola = parseInt(c[idx.pz_scatola]) || 0;
-                item.pz_bancale = parseInt(c[idx.pz_bancale]) || 1;
+                item.pz_scatola = parseInt(c[idx.pz_scat]) || 0;
+                item.pz_bancale = parseInt(c[idx.pz_banc]) || 1;
+                if (gamma === "Fortis") {
+                    item.pz_mq_piatto = parseFloat(c[idx.pz_mq_p]?.replace(',', '.')) || 0;
+                    item.pz_mq_coltello = parseFloat(c[idx.pz_mq_c]?.replace(',', '.')) || 0;
+                }
             }
             batch.push(item);
         }
