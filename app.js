@@ -58,7 +58,7 @@ async function renderInterfacciaCalcolo(cat, gamma) {
     }
 
     const unitLabel = (cat === "Legno") ? "MQ UTILI" : "Quantità";
-    const unitOptions = (cat === "Pietra" || cat === "Legno") ? `<option value="mq">MQ</option><option value="pz">PEZZI</option>` : `<option value="mq">MQ</option><option value="pz">PEZZI</option>`;
+    const unitOptions = `<option value="mq">MQ</option><option value="pz">PEZZI</option>`;
 
     c.innerHTML = `
         <div class="mb-4 italic"><p class="text-[10px] font-black text-blue-600 uppercase">${cat} / ${gamma}</p></div>
@@ -86,7 +86,7 @@ function toggleSfrido(val) {
     else box.classList.add('hidden');
 }
 
-// --- LOGICA DI CALCOLO COMMERCIALE (BLINDATA) ---
+// --- LOGICA DI CALCOLO COMMERCIALE (MOTORE DI CALCOLO CONGELATO) ---
 function eseguiCalcoloCommerciale() {
     const p = JSON.parse(document.getElementById('select-prod').value);
     let mainQtyInput = parseFloat(document.getElementById('q-main').value) || 0;
@@ -105,9 +105,9 @@ function eseguiCalcoloCommerciale() {
     let qtyVenduta = 0;
     let vincoloMsg = "Vendita Libera";
     let baseDisc = 45;
-    let labelUnit = (p.category === "Pietra" || p.category === "Legno") ? " MQ" : " pz";
+    let labelUnit = (p.category === "Mattoni") ? " pz" : " MQ";
 
-    // 1. LOGICA RIVESTIMENTI LEGNO (NOMINALE)
+    // 1. LEGNO: RIVESTIMENTI
     if (p.range === "Rivestimenti" && p.category === "Legno") {
         const coeffLegno = 146 / 136;
         qtyVenduta = (qtyLavorazione + extraQty) * coeffLegno;
@@ -115,7 +115,12 @@ function eseguiCalcoloCommerciale() {
         baseDisc = (qtyVenduta >= 15) ? 50 : 45;
         labelUnit = " MQ Nom.";
     } 
-    // 2. LOGICA PANNELLI PIETRA (SCATOLA)
+    // 2. LEGNO: PAVIMENTI
+    else if (p.range === "Pavimenti" && p.category === "Legno") {
+        qtyVenduta = qtyLavorazione + extraQty;
+        baseDisc = (qtyVenduta >= 15) ? 50 : 45;
+    }
+    // 3. PIETRA: PANNELLI
     else if (p.range === "Pannelli preassemblati") {
         const mqRichiesti = qtyLavorazione + extraQty;
         const m2scat = parseFloat(p.m2_scatola) || 1;
@@ -123,7 +128,7 @@ function eseguiCalcoloCommerciale() {
         vincoloMsg = "Arrotondamento Scatola";
         baseDisc = (qtyVenduta >= (parseFloat(p.m2_bancale) || 999)) ? 50 : 45;
     } 
-    // 3. LOGICA PAVIMENTI PIETRA (BANCALE SE SFUSO NO)
+    // 4. PIETRA: PAVIMENTI (BANCALE SE SFUSO NO)
     else if (p.range === "Pavimenti" && p.category === "Pietra") {
         const totalQty = qtyLavorazione + extraQty;
         const m2banc = parseFloat(p.m2_bancale) || 999;
@@ -135,19 +140,19 @@ function eseguiCalcoloCommerciale() {
         }
         baseDisc = (qtyVenduta >= m2banc) ? 50 : 45;
     }
-    // 4. LOGICA TETTI (PEZZI)
+    // 5. PIETRA: TETTI
     else if (p.range === "Tetti") {
         const pzMq = parseFloat(p.pz_mq) || 1;
         qtyVenduta = (unitType === 'mq') ? Math.ceil((qtyLavorazione + extraQty) * pzMq) : (qtyLavorazione + extraQty);
         baseDisc = (qtyVenduta >= (p.pz_bancale || 999)) ? 50 : 45;
         labelUnit = " pz";
     }
-    // 5. LOGICA PIETRA LIBERA
+    // 6. PIETRA: TAGLIO RETT. / POSA INCERTA
     else if (p.range === "Posa incerta" || p.range === "Taglio rettangolare") {
         qtyVenduta = qtyLavorazione + extraQty;
         baseDisc = (qtyVenduta >= (parseFloat(p.m2_bancale) || 999)) ? 50 : 45;
     } 
-    // 6. LOGICA MATTONI (GENESIS, CROMA, ETC)
+    // 7. MATTONI
     else {
         let pzMq = p.pz_mq;
         if (p.range === "Fortis") pzMq = (document.getElementById('tipo-posa').value === "coltello") ? p.pz_mq_coltello : p.pz_mq_piatto;
@@ -160,7 +165,7 @@ function eseguiCalcoloCommerciale() {
             qtyVenduta = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale;
             vincoloMsg = "Bancale Intero";
         }
-        baseDisc = (qtyVenduta >= p.pz_bancale) ? 50 : 45;
+        baseDisc = (qtyVenduta >= (p.pz_bancale || 999)) ? 50 : 45;
         labelUnit = " pz";
     }
 
@@ -176,7 +181,7 @@ function eseguiCalcoloCommerciale() {
     document.getElementById('iva-note').innerText = isPrivato ? "Incl. IVA 22% e Trasp." : "Escl. IVA, Incl. Trasp.";
 }
 
-// --- GESTIONALE (TAB LISTINI) ---
+// --- GESTIONALE ---
 function renderGestionale() {
     const c = document.getElementById('content');
     const b = document.getElementById('back-btn');
@@ -216,11 +221,7 @@ async function importa(cat, gamma, e) {
         for(let i = 1; i < lines.length; i++) {
             const c = lines[i].split(/[,;]/).map(val => val.trim());
             if (!c[idx.nome]) continue;
-            let item = { 
-                category: cat, range: gamma, name: c[idx.nome], 
-                price: parseFloat(c[idx.prezzo]?.replace(',', '.')) || 0, 
-                sfuso: idx.sfuso !== -1 ? c[idx.sfuso].toLowerCase() : 'sì' 
-            };
+            let item = { category: cat, range: gamma, name: c[idx.nome], price: parseFloat(c[idx.prezzo]?.replace(',', '.')) || 0, sfuso: idx.sfuso !== -1 ? c[idx.sfuso].toLowerCase() : 'sì' };
             item.m2_bancale = parseFloat(c[idx.m2_banc]?.replace(',', '.')) || 999;
             item.m2_scatola = parseFloat(c[idx.m2_scat]?.replace(',', '.')) || 1;
             item.pz_mq = parseFloat(c[idx.pz_mq]?.replace(',', '.')) || 1;
@@ -233,7 +234,7 @@ async function importa(cat, gamma, e) {
             batch.push(item);
         }
         await db.prodotti.bulkAdd(batch);
-        alert(`SUCCESSO: ${gamma} caricato!`);
+        alert(`SUCCESSO: Listino ${gamma} caricato!`);
     };
     reader.readAsText(file);
 }
