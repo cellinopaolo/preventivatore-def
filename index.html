@@ -17,90 +17,88 @@
             --ios-sep: #C6C6C8;
         }
 
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --ios-bg: #000000;
-                --ios-card: #1C1C1E;
-                --ios-sep: #38383A;
-            }
-            body { color: white; }
-        }
-
         body {
             font-family: 'Inter', -apple-system, sans-serif;
             background-color: var(--ios-bg);
+            color: #000000;
             -webkit-font-smoothing: antialiased;
         }
 
         /* Grouped Table Style */
         .ios-group {
             background: var(--ios-card);
-            border-radius: 10px;
-            margin-bottom: 20px;
+            border-radius: 12px;
+            margin: 0 16px 24px 16px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
         }
 
         .ios-row {
             display: flex;
             align-items: center;
             padding: 12px 16px;
+            min-height: 44px;
             border-bottom: 0.5px solid var(--ios-sep);
         }
 
         .ios-row:last-child { border-bottom: none; }
 
         .ios-label {
-            font-size: 15px;
+            font-size: 16px;
             font-weight: 400;
-            width: 40%;
-            color: inherit;
+            flex: 1;
         }
 
-        /* Input Invisibili stile iOS */
+        /* Styling Input e Select come iOS Nativo */
         input, select {
             background: transparent !important;
             border: none !important;
             outline: none !important;
-            font-size: 17px !important;
-            color: var(--ios-blue) !important;
-            width: 60%;
+            font-size: 16px !important;
+            color: #8E8E93 !important;
             text-align: right;
+            padding: 0 !important;
+            width: auto;
+            max-width: 180px;
             appearance: none;
             -webkit-appearance: none;
         }
 
-        input::placeholder { color: #AEAEB2; }
-
-        /* Button Apple Blue */
-        .btn-primary {
-            background-color: var(--ios-blue);
-            color: white;
-            border-radius: 12px;
-            padding: 16px;
-            font-weight: 600;
-            font-size: 17px;
-            width: 100%;
-            margin-top: 10px;
-            transition: opacity 0.2s;
+        input:focus, select:focus {
+            color: var(--ios-blue) !important;
         }
 
-        .btn-primary:active { opacity: 0.7; }
-
-        /* Navigation */
+        /* Titoli stile iOS 17 */
         .nav-header {
             position: sticky;
             top: 0;
             z-index: 50;
-            padding: 40px 20px 10px 20px;
-            background: var(--ios-bg);
+            padding: 50px 20px 10px 20px;
+            background: rgba(242, 242, 247, 0.8);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
         }
 
         .large-title {
             font-size: 34px;
-            font-weight: 800;
-            letter-spacing: -0.5px;
+            font-weight: 700;
+            letter-spacing: -1px;
+            margin-left: -2px;
         }
+
+        .btn-primary {
+            background-color: var(--ios-blue);
+            color: white;
+            border-radius: 12px;
+            padding: 14px;
+            font-weight: 600;
+            font-size: 17px;
+            width: calc(100% - 32px);
+            margin: 0 16px;
+            transition: transform 0.1s;
+        }
+
+        .btn-primary:active { transform: scale(0.97); opacity: 0.9; }
 
         .tab-bar {
             position: fixed;
@@ -111,33 +109,31 @@
             border-top: 0.5px solid var(--ios-sep);
             display: flex;
             justify-content: space-around;
-            padding: 10px 0 30px 0;
+            padding: 10px 0 32px 0;
         }
     </style>
 </head>
 <body class="pb-40">
 
-    <div id="app">
-        <header class="nav-header">
-            <div id="header-top" class="flex justify-between items-center mb-2">
-                <button id="back-btn" class="text-[#007AFF] hidden flex items-center font-medium">
-                    <i data-lucide="chevron-left" class="w-6 h-6"></i> Indietro
-                </button>
-            </div>
-            <h1 class="large-title" id="page-title">Catalogo</h1>
-        </header>
+    <header class="nav-header">
+        <div class="flex items-center h-8 mb-2">
+            <button id="back-btn" class="text-[#007AFF] hidden flex items-center font-normal text-lg">
+                <i data-lucide="chevron-left" class="w-7 h-7 -ml-2"></i> Indietro
+            </button>
+        </div>
+        <h1 class="large-title" id="page-title">Catalogo</h1>
+    </header>
 
-        <main id="content" class="px-4 mt-2 max-w-lg mx-auto"></main>
-    </div>
+    <main id="content" class="mt-4 max-w-lg mx-auto"></main>
 
     <nav class="tab-bar">
         <button onclick="renderCategorie()" class="flex flex-col items-center">
-            <i data-lucide="grid" class="w-6 h-6 text-[#007AFF]"></i>
-            <span class="text-[10px] mt-1 text-[#007AFF]">Catalogo</span>
+            <i data-lucide="layout-grid" class="w-6 h-6 text-[#007AFF]"></i>
+            <span class="text-[10px] mt-1 text-[#007AFF] font-medium">Libreria</span>
         </button>
         <button onclick="renderGestionale()" class="flex flex-col items-center opacity-40">
-            <i data-lucide="settings" class="w-6 h-6"></i>
-            <span class="text-[10px] mt-1">Impostazioni</span>
+            <i data-lucide="database" class="w-6 h-6"></i>
+            <span class="text-[10px] mt-1 font-medium">Listini</span>
         </button>
     </nav>
 
