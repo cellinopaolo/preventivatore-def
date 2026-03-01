@@ -11,26 +11,21 @@
         body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: contain; }
         .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
         input::-webkit-inner-spin-button, input::-webkit-outer-spin-button { display: none; }
-        select { background-image: none !important; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 font-sans select-none">
     <div id="app" class="max-w-md mx-auto min-h-screen flex flex-col">
         <header class="bg-white p-4 shadow-sm sticky top-0 z-30 flex justify-between items-center border-b">
-            <h1 class="text-xl font-black tracking-tighter italic uppercase">PREVENTIVI <span class="text-blue-600">PRO</span></h1>
+            <h1 class="text-xl font-black tracking-tighter italic uppercase text-blue-600">PREVENTIVI PRO</h1>
             <div id="back-btn" class="hidden p-2 bg-slate-100 rounded-full cursor-pointer"><i data-lucide="arrow-left"></i></div>
         </header>
-
         <main id="content" class="p-4 flex-grow pb-32"></main>
-
-        <nav class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex justify-around items-center max-w-md mx-auto z-40 safe-area-bottom shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
-            <button onclick="renderCategorie()" class="flex flex-col items-center text-blue-600">
-                <i data-lucide="layout-grid"></i>
-                <span class="text-[10px] font-bold uppercase mt-1">Catalogo</span>
+        <nav class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex justify-around items-center max-w-md mx-auto z-40 safe-area-bottom shadow-lg">
+            <button onclick="renderCategorie()" class="flex flex-col items-center text-blue-600 font-bold uppercase text-[10px]">
+                <i data-lucide="layout-grid"></i><span>Catalogo</span>
             </button>
-            <button onclick="renderGestionale()" class="flex flex-col items-center text-slate-400">
-                <i data-lucide="database"></i>
-                <span class="text-[10px] font-bold uppercase mt-1">Listini</span>
+            <button onclick="renderGestionale()" class="flex flex-col items-center text-slate-400 font-bold uppercase text-[10px]">
+                <i data-lucide="database"></i><span>Listini</span>
             </button>
         </nav>
     </div>
