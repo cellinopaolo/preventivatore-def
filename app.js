@@ -14,6 +14,7 @@ async function init() { renderCategorie(); lucide.createIcons(); }
 function renderCategorie() {
     const c = document.getElementById('content');
     document.getElementById('back-btn').classList.add('hidden');
+    // Rimosso il bottone duplicato "Gestione Listini" dal centro
     c.innerHTML = `
         <div class="grid gap-4 italic font-black text-xl uppercase tracking-tighter">
             ${Object.keys(STRUTTURA).map(key => `
@@ -21,9 +22,6 @@ function renderCategorie() {
                     <div class="bg-white/20 p-4 rounded-2xl"><i data-lucide="${STRUTTURA[key].icona}"></i></div>
                     <span>${key}</span>
                 </button>`).join('')}
-            <button onclick="renderGestionale()" class="bg-slate-800 p-6 rounded-[2rem] text-white flex items-center justify-center gap-4 mt-4 opacity-80 hover:opacity-100 transition-all">
-                <i data-lucide="database"></i> <span>Gestione Listini</span>
-            </button>
         </div>`;
     lucide.createIcons();
 }
@@ -42,7 +40,7 @@ function renderGamme(cat) {
     lucide.createIcons();
 }
 
-// --- INTERFACCIA CALCOLO (BLINDATA) ---
+// --- INTERFACCIA CALCOLO (CONGELATA PER: MATTONI, POSA INCERTA, PANNELLI) ---
 async function renderInterfacciaCalcolo(cat, gamma) {
     const prodotti = await db.prodotti.where({ category: cat, range: gamma }).toArray();
     const c = document.getElementById('content');
@@ -88,7 +86,7 @@ function toggleSfrido(val) {
     else box.classList.add('hidden');
 }
 
-// --- LOGICA DI CALCOLO ---
+// --- LOGICA DI CALCOLO COMMERCIALE ---
 function eseguiCalcoloCommerciale() {
     const p = JSON.parse(document.getElementById('select-prod').value);
     let mainQtyInput = parseFloat(document.getElementById('q-main').value) || 0;
