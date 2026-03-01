@@ -1,4 +1,3 @@
-// Configurazione Database Locale
 const db = new Dexie("PreventiviDB");
 db.version(1).stores({ prodotti: "++id, category, range, name" });
 
@@ -10,7 +9,7 @@ const STRUTTURA = {
 
 async function init() { renderCategorie(); lucide.createIcons(); }
 
-// --- NAVIGAZIONE ---
+// --- NAVIGAZIONE (INVARIATA) ---
 function renderCategorie() {
     const c = document.getElementById('content');
     document.getElementById('back-btn').classList.add('hidden');
@@ -38,7 +37,7 @@ function renderGamme(cat) {
     lucide.createIcons();
 }
 
-// --- INTERFACCIA CALCOLO ---
+// --- INTERFACCIA CALCOLO (INVARIATA) ---
 async function renderInterfacciaCalcolo(cat, gamma) {
     const prodotti = await db.prodotti.where({ category: cat, range: gamma }).toArray();
     const c = document.getElementById('content');
@@ -123,7 +122,9 @@ function eseguiCalcoloCommerciale() {
     let pzRichiesti = (unitType === 'mq') ? Math.ceil((mainQty + extraQty) * pzMqEffettivo) : (mainQty + extraQty);
     let pzFinali = pzRichiesti;
     let vincoloMsg = "";
-    const sfusoVal = p.sfuso ? p.sfuso.trim().toLowerCase() : 'no';
+    
+    // Pulizia estrema del valore sfuso
+    const sfusoVal = (p.sfuso || "").toString().trim().toLowerCase();
 
     if (p.range === "Croma") {
         if (sfusoVal === 'no') {
@@ -157,7 +158,7 @@ function eseguiCalcoloCommerciale() {
     document.getElementById('iva-note').innerText = isPrivato ? "Incl. IVA 22% e Trasp." : "Escl. IVA, Incl. Trasp.";
 }
 
-// --- GESTIONE LISTINI ---
+// --- GESTIONE LISTINI (IMPORTAZIONE INTELLIGENTE) ---
 function renderGestionale() {
     const c = document.getElementById('content');
     document.getElementById('back-btn').classList.add('hidden');
@@ -180,40 +181,52 @@ async function importa(cat, gamma, e) {
     const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = async (event) => {
-        const lines = event.target.result.split(/\r?\n/);
+        const text = event.target.result;
+        const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
+        const header = lines[0].split(/[,;]/).map(h => h.trim().toLowerCase());
+        
+        // Trova gli indici delle colonne dinamicamente per evitare errori di posizione
+        const idx = {
+            nome: header.indexOf("nome"),
+            prezzo: header.indexOf("prezzo_pz"),
+            pz_mq: header.indexOf("pz_m2"),
+            pz_mq_p: header.indexOf("pz_m2_piatto"),
+            pz_mq_c: header.indexOf("pz_m2_coltello"),
+            pz_scatola: header.indexOf("pz_scatola"),
+            pz_bancale: header.indexOf("pz_bancale"),
+            sfuso: header.indexOf("sfuso")
+        };
+
         const batch = [];
         await db.prodotti.where({ category: cat, range: gamma }).delete();
-        lines.forEach((line, i) => {
-            const c = line.split(/[,;]/); 
-            if (i > 0 && c[2]) {
-                let item = { category: cat, range: gamma, name: c[2].trim(), price: parseFloat(c[3]?.replace(',', '.')) || 0 };
-                
-                if (gamma === "Fortis") {
-                    item.pz_mq_coltello = parseFloat(c[4]?.replace(',', '.')) || 0;
-                    item.pz_mq_piatto = parseFloat(c[5]?.replace(',', '.')) || 0;
-                    item.pz_bancale = parseInt(c[6]) || 1;
-                    item.kg_bancale = parseFloat(c[7]?.replace(',', '.')) || 0;
-                    item.sfuso = c[8] ? c[8].trim().toLowerCase() : 'no';
-                    item.pz_mq = item.pz_mq_piatto;
-                } else if (gamma === "Croma") {
-                    // Mappatura specifica Croma (Sfuso in colonna H/7)
-                    item.pz_mq = parseFloat(c[4]?.replace(',', '.')) || 1;
-                    item.pz_bancale = parseInt(c[5]) || 1;
-                    item.kg_bancale = parseFloat(c[6]?.replace(',', '.')) || 0;
-                    item.sfuso = c[7] ? c[7].trim().toLowerCase() : 'no';
-                    item.pz_scatola = 0;
-                } else {
-                    item.pz_mq = parseFloat(c[4]?.replace(',', '.')) || 1;
-                    item.pz_scatola = parseInt(c[5]) || 0;
-                    item.pz_bancale = parseInt(c[6]) || 1;
-                    item.kg_bancale = parseFloat(c[7]?.replace(',', '.')) || 0;
-                    item.sfuso = c[8] ? c[8].trim().toLowerCase() : 'si';
-                }
-                batch.push(item);
+
+        for(let i = 1; i < lines.length; i++) {
+            const c = lines[i].split(/[,;]/).map(val => val.trim());
+            if (!c[idx.nome]) continue;
+
+            let item = { 
+                category: cat, 
+                range: gamma, 
+                name: c[idx.nome], 
+                price: parseFloat(c[idx.prezzo]?.replace(',', '.')) || 0,
+                sfuso: idx.sfuso !== -1 ? c[idx.sfuso].toLowerCase() : 'no'
+            };
+
+            if (gamma === "Fortis") {
+                item.pz_mq_piatto = parseFloat(c[idx.pz_mq_p]?.replace(',', '.')) || 0;
+                item.pz_mq_coltello = parseFloat(c[idx.pz_mq_c]?.replace(',', '.')) || 0;
+                item.pz_bancale = parseInt(c[idx.pz_bancale]) || 1;
+                item.pz_mq = item.pz_mq_piatto;
+            } else {
+                item.pz_mq = parseFloat(c[idx.pz_mq]?.replace(',', '.')) || 1;
+                item.pz_scatola = idx.pz_scatola !== -1 ? parseInt(c[idx.pz_scatola]) : 0;
+                item.pz_bancale = parseInt(c[idx.pz_bancale]) || 1;
             }
-        });
+            batch.push(item);
+        }
+
         await db.prodotti.bulkAdd(batch);
-        alert(`Listino ${gamma} aggiornato con mappatura corretta!`);
+        alert(`SUCCESSO: Listino ${gamma} caricato correttamente!`);
         renderGestionale();
     };
     reader.readAsText(file);
