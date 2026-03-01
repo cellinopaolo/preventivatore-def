@@ -4,38 +4,93 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Preventivatore Pro</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
     <style>
-        body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: contain; }
-        .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
-        input::-webkit-inner-spin-button, input::-webkit-outer-spin-button { display: none; }
-        .bg-pattern { background-color: #f8fafc; background-image: radial-gradient(#cbd5e1 0.5px, transparent 0.5px); background-size: 10px 10px; }
+        :root {
+            --apple-bg: #f5f5f7;
+            --apple-card: rgba(255, 255, 255, 0.75);
+            --apple-blue: #007aff;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--apple-bg);
+            color: #1d1d1f;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        /* Glassmorphism */
+        .glass {
+            background: var(--apple-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+
+        /* Animazioni iOS */
+        .ios-tap {
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s;
+        }
+        .ios-tap:active {
+            transform: scale(0.95);
+            opacity: 0.7;
+        }
+
+        /* Bottom Tab Bar stile Apple */
+        .bottom-nav {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-top: 0.5px solid rgba(0, 0, 0, 0.1);
+        }
+
+        /* Input stile iOS */
+        input, select {
+            background: rgba(0, 0, 0, 0.04) !important;
+            border: none !important;
+            outline: none !important;
+            transition: background 0.2s;
+        }
+        input:focus, select:focus {
+            background: rgba(0, 0, 0, 0.08) !important;
+        }
+
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
-<body class="bg-pattern text-slate-900 font-sans select-none">
-    <div id="app" class="max-w-md mx-auto min-h-screen flex flex-col shadow-2xl bg-slate-50">
-        <header class="bg-white p-4 shadow-sm sticky top-0 z-30 flex justify-between items-center border-b">
-            <h1 class="text-xl font-black tracking-tighter italic uppercase text-blue-600">PREVENTIVI PRO</h1>
-            <div id="back-btn" class="hidden p-2 bg-slate-100 rounded-full cursor-pointer hover:bg-slate-200 transition-colors">
-                <i data-lucide="arrow-left"></i>
-            </div>
-        </header>
+<body class="pb-32">
 
-        <main id="content" class="p-4 flex-grow pb-32"></main>
+    <nav class="sticky top-0 z-50 px-6 py-4 flex items-center justify-between bg-[#f5f5f7]/80 backdrop-blur-md">
+        <button id="back-btn" class="ios-tap p-2 -ml-2 hidden">
+            <i data-lucide="chevron-left" class="w-7 h-7 text-[#007aff]"></i>
+        </button>
+        <div class="flex-1 text-right">
+            <span class="text-[11px] font-bold uppercase tracking-widest text-slate-400">Preventivatore v2.0</span>
+        </div>
+    </nav>
 
-        <nav class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex justify-around items-center max-w-md mx-auto z-40 safe-area-bottom shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
-            <button onclick="renderCategorie()" class="flex flex-col items-center text-blue-600 group">
-                <i data-lucide="layout-grid" class="group-active:scale-90 transition-transform"></i>
-                <span class="text-[10px] font-bold uppercase mt-1">Catalogo</span>
+    <main id="content" class="px-6 max-w-2xl mx-auto"></main>
+
+    <div class="fixed bottom-0 left-0 right-0 z-50 px-6 pb-8 pt-2 bottom-nav">
+        <div class="max-w-md mx-auto flex justify-around items-center">
+            <button onclick="renderCategorie()" class="ios-tap flex flex-col items-center gap-1 text-[#007aff]">
+                <i data-lucide="layout-grid" class="w-6 h-6"></i>
+                <span class="text-[10px] font-medium">Catalogo</span>
             </button>
-            <button onclick="renderGestionale()" class="flex flex-col items-center text-slate-400 group">
-                <i data-lucide="database" class="group-active:scale-90 transition-transform"></i>
-                <span class="text-[10px] font-bold uppercase mt-1">Listini</span>
+            <button onclick="renderGestionale()" class="ios-tap flex flex-col items-center gap-1 text-slate-400">
+                <i data-lucide="database" class="w-6 h-6"></i>
+                <span class="text-[10px] font-medium">Listini</span>
             </button>
-        </nav>
+        </div>
     </div>
+
     <script src="app.js"></script>
 </body>
 </html>
