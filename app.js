@@ -26,7 +26,7 @@ function renderGamme(cat) {
     const c = document.getElementById('content');
     const b = document.getElementById('back-btn');
     b.classList.remove('hidden'); b.onclick = renderCategorie;
-    c.innerHTML = `<h2 class="text-2xl font-black mb-6 uppercase italic text-slate-800 underline decoration-blue-500 decoration-4 underline-offset-8">${cat}</h2>
+    c.innerHTML = `<h2 class="text-2xl font-black mb-6 uppercase italic text-slate-800 underline decoration-blue-500 underline-offset-8">${cat}</h2>
         <div class="grid gap-3 italic font-bold text-slate-700 uppercase tracking-widest text-sm">
             ${STRUTTURA[cat].gamme.map(g => `
                 <button onclick="renderInterfacciaCalcolo('${cat}', '${g}')" class="bg-white p-6 rounded-2xl border-2 border-slate-100 flex justify-between items-center shadow-sm active:border-blue-500 transition-all">
@@ -36,7 +36,6 @@ function renderGamme(cat) {
     lucide.createIcons();
 }
 
-// --- INTERFACCIA DEDICATA AL PREVENTIVO ---
 async function renderInterfacciaCalcolo(cat, gamma) {
     const prodotti = await db.prodotti.where({ category: cat, range: gamma }).toArray();
     const c = document.getElementById('content');
@@ -48,73 +47,116 @@ async function renderInterfacciaCalcolo(cat, gamma) {
     }
 
     c.innerHTML = `
-        <div class="mb-6 italic">
-            <p class="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">${cat}</p>
-            <h2 class="text-2xl font-black text-slate-800 uppercase italic">${gamma}</h2>
+        <div class="mb-4 italic">
+            <p class="text-[10px] font-black text-blue-600 uppercase mb-1">${cat} / ${gamma}</p>
         </div>
 
-        <div class="bg-white p-6 rounded-[2.5rem] border shadow-sm space-y-6">
-            <div class="space-y-2">
-                <label class="text-[10px] font-black uppercase text-slate-400 ml-4 italic">Seleziona Modello</label>
-                <select id="select-prod" class="w-full bg-slate-100 p-4 rounded-2xl font-bold italic outline-none border-2 border-transparent focus:border-blue-500 appearance-none">
-                    ${prodotti.map(p => `<option value='${JSON.stringify(p)}'>${p.name} - €${p.price.toFixed(2)}</option>`).join('')}
+        <div class="bg-white p-5 rounded-[2.5rem] border shadow-sm space-y-5">
+            <div>
+                <label class="text-[9px] font-black uppercase text-slate-400 ml-4 italic">Modello</label>
+                <select id="select-prod" class="w-full bg-slate-100 p-4 rounded-2xl font-bold italic outline-none border-2 border-transparent focus:border-blue-500">
+                    ${prodotti.map(p => `<option value='${JSON.stringify(p)}'>${p.name}</option>`).join('')}
                 </select>
             </div>
 
-            <div class="relative">
-                <input type="number" id="val-mq" class="w-full bg-slate-50 rounded-3xl p-8 text-4xl font-black text-center outline-none border-2 border-slate-100 focus:border-blue-500 italic" placeholder="0">
-                <label class="absolute -top-3 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-1 rounded-full text-[10px] font-black uppercase italic whitespace-nowrap">Metri Quadri (m²)</label>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="relative">
+                    <input type="number" id="q-main" class="w-full bg-slate-50 rounded-2xl p-4 text-2xl font-black text-center border focus:border-blue-500 outline-none italic" value="0">
+                    <label class="absolute -top-2 left-4 bg-slate-800 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase italic">Quantità</label>
+                </div>
+                <div>
+                    <select id="u-type" class="w-full bg-slate-100 p-4 h-full rounded-2xl font-black italic outline-none text-sm">
+                        <option value="mq">MQ</option>
+                        <option value="pz">PEZZI</option>
+                    </select>
+                </div>
             </div>
 
-            <div id="risultato" class="hidden space-y-4 bg-blue-600 p-6 rounded-[2rem] text-white italic shadow-lg shadow-blue-100">
-                <div class="flex justify-between border-b border-white/20 pb-2">
-                    <span class="text-[10px] font-bold uppercase opacity-80">Quantità</span>
-                    <span id="res-q" class="font-black"></span>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="relative">
+                    <input type="number" id="q-extra" class="w-full bg-slate-50 rounded-2xl p-4 text-xl font-black text-center border outline-none italic" value="0">
+                    <label class="absolute -top-2 left-4 bg-blue-600 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase italic">Quantità Extra</label>
                 </div>
-                <div class="flex justify-between border-b border-white/20 pb-2">
-                    <span class="text-[10px] font-bold uppercase opacity-80">Bancali/Colli</span>
-                    <span id="res-b" class="font-black"></span>
+                <div class="relative">
+                    <input type="number" id="d-extra" class="w-full bg-slate-50 rounded-2xl p-4 text-xl font-black text-center border outline-none italic" value="0">
+                    <label class="absolute -top-2 left-4 bg-orange-500 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase italic">Sconto Extra %</label>
                 </div>
-                <div class="flex justify-between items-end pt-2">
-                    <span class="text-xs font-black uppercase">Totale Preventivo</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div class="relative">
+                    <input type="number" id="cost-trans" class="w-full bg-slate-50 rounded-2xl p-4 text-xl font-black text-center border outline-none italic" value="0">
+                    <label class="absolute -top-2 left-4 bg-slate-500 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase italic">Trasporto €</label>
+                </div>
+                <div>
+                    <select id="c-type" class="w-full bg-slate-100 p-4 h-full rounded-2xl font-black italic outline-none text-[10px] uppercase">
+                        <option value="azienda">Azienda (Escl. IVA)</option>
+                        <option value="privato">Privato (Incl. IVA)</option>
+                    </select>
+                </div>
+            </div>
+
+            <button onclick="eseguiCalcoloCommerciale()" class="w-full bg-blue-600 text-white py-5 rounded-[2rem] font-black uppercase italic shadow-xl active:scale-95 transition-all">Calcola Totale</button>
+
+            <div id="risultato" class="hidden bg-slate-900 p-6 rounded-[2rem] text-white italic space-y-3 shadow-2xl">
+                <div class="flex justify-between text-[10px] uppercase opacity-60"><span>Sconto Applicato</span> <span id="res-sconto-base"></span></div>
+                <div class="flex justify-between text-[10px] uppercase opacity-60"><span>Pezzi Totali</span> <span id="res-pz"></span></div>
+                <div class="flex justify-between text-[10px] uppercase opacity-60"><span>Peso Stimato</span> <span id="res-kg"></span></div>
+                <div class="flex justify-between items-end pt-2 border-t border-white/10">
+                    <span class="text-xs font-black uppercase text-blue-400">Totale Finale</span>
                     <span id="res-p" class="text-3xl font-black tracking-tighter"></span>
                 </div>
+                <p id="iva-note" class="text-[8px] uppercase text-center opacity-40 pt-2"></p>
             </div>
-
-            <button onclick="eseguiCalcolo()" class="w-full bg-blue-600 text-white py-6 rounded-[2rem] font-black uppercase italic shadow-xl shadow-blue-200 active:scale-95 transition-all">Calcola Preventivo</button>
         </div>
     `;
     lucide.createIcons();
 }
 
-function eseguiCalcolo() {
+function eseguiCalcoloCommerciale() {
     const p = JSON.parse(document.getElementById('select-prod').value);
-    const mqInput = parseFloat(document.getElementById('val-mq').value) || 0;
-    
-    let quantita, prezzo, bancali;
+    const mainQty = parseFloat(document.getElementById('q-main').value) || 0;
+    const extraQty = parseFloat(document.getElementById('q-extra').value) || 0;
+    const unitType = document.getElementById('u-type').value;
+    const extraDisc = parseFloat(document.getElementById('d-extra').value) || 0;
+    const transport = parseFloat(document.getElementById('cost-trans').value) || 0;
+    const isPrivato = document.getElementById('c-type').value === 'privato';
 
-    if (p.category === "Mattoni") {
-        let pz = Math.ceil(mqInput * p.pz_mq);
-        if (p.sfuso === 'no') pz = Math.ceil(pz / p.pz_bancale) * p.pz_bancale;
-        quantita = pz + " pz";
-        prezzo = pz * p.price;
-        bancali = (pz / p.pz_bancale).toFixed(1);
-    } else {
-        let mq = mqInput;
-        if (p.sfuso === 'no') mq = Math.ceil(mq / p.pz_bancale) * p.pz_bancale;
-        quantita = mq.toFixed(2) + " m²";
-        prezzo = mq * p.price;
-        bancali = (mq / p.pz_bancale).toFixed(1);
+    // 1. Conversione in PEZZI totali per il controllo bancale
+    let pzPrincipali = (unitType === 'mq') ? Math.ceil(mainQty * p.pz_mq) : mainQty;
+    let pzExtra = (unitType === 'mq') ? Math.ceil(extraQty * p.pz_mq) : extraQty;
+    let pzTotali = pzPrincipali + pzExtra;
+
+    // 2. Determinazione Sconto Base (50% o 45%)
+    // Verifichiamo se pzTotali >= pz_bancale
+    const isFullPallet = pzTotali >= p.pz_bancale;
+    const baseDisc = isFullPallet ? 50 : 45;
+
+    // 3. Calcolo Prezzo con Sconto Composto
+    // Prezzo Scontato = Prezzo Listino * (1 - ScontoBase) * (1 - ScontoExtra)
+    const priceAfterBase = p.price * (1 - baseDisc / 100);
+    const finalPriceUnit = priceAfterBase * (1 - extraDisc / 100);
+    
+    let imponibileMerce = pzTotali * finalPriceUnit;
+    let totaleImponibile = imponibileMerce + transport;
+
+    // 4. Gestione IVA
+    let finale = totaleImponibile;
+    if (isPrivato) {
+        finale = totaleImponibile * 1.22;
     }
 
+    // 5. Output
     const box = document.getElementById('risultato');
     box.classList.remove('hidden');
-    document.getElementById('res-q').innerText = quantita;
-    document.getElementById('res-b').innerText = bancali;
-    document.getElementById('res-p').innerText = "€" + prezzo.toLocaleString('it-IT', {minimumFractionDigits: 2});
+    document.getElementById('res-sconto-base').innerText = `${baseDisc}% + ${extraDisc}%`;
+    document.getElementById('res-pz').innerText = pzTotali + " pz";
+    document.getElementById('res-kg').innerText = Math.round((pzTotali / p.pz_bancale) * p.kg_bancale) + " kg";
+    document.getElementById('res-p').innerText = "€" + finale.toLocaleString('it-IT', {minimumFractionDigits: 2});
+    document.getElementById('iva-note').innerText = isPrivato ? "Include IVA 22% e Trasporto" : "Prezzo IVA esclusa, include Trasporto";
 }
 
-// --- GESTIONALE (Resta uguale per caricare i file) ---
+// Funzione Gestionale (sempre uguale, colonna 6 per pz_bancale, colonna 7 per kg_bancale)
 function renderGestionale() {
     const c = document.getElementById('content');
     document.getElementById('back-btn').classList.add('hidden');
@@ -148,7 +190,7 @@ async function importa(cat, gamma, e) {
                     price: parseFloat(c[3].replace(',', '.')) || 0,
                     pz_mq: parseFloat(c[4]?.replace(',', '.')) || 1,
                     pz_bancale: parseInt(c[6]) || 1,
-                    sfuso: c[8] ? c[8].trim().toLowerCase() : 'si'
+                    kg_bancale: parseFloat(c[7]?.replace(',', '.')) || 0
                 });
             }
         });
