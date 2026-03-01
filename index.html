@@ -17,21 +17,17 @@
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 font-sans">
-
     <div id="app" class="max-w-md mx-auto min-h-screen flex flex-col">
         <header class="bg-white p-6 shadow-sm sticky top-0 z-20 safe-top flex justify-between items-center">
             <div>
                 <h1 class="text-xl font-black tracking-tighter text-slate-800">PREVENTIVI PRO</h1>
-                <p id="sub-title" class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Offline Mode</p>
+                <p id="sub-title" class="text-[10px] text-slate-400 font-bold uppercase tracking-widest text-center">Catalogo</p>
             </div>
             <div id="back-btn" class="hidden bg-slate-100 p-2 rounded-full cursor-pointer">
                 <i data-lucide="arrow-left" class="text-slate-600"></i>
             </div>
         </header>
-
-        <main id="content" class="p-4 flex-grow">
-            </main>
-
+        <main id="content" class="p-4 flex-grow"></main>
         <nav class="fixed bottom-0 left-0 right-0 bg-white border-t safe-bottom flex justify-around items-center p-4 max-w-md mx-auto z-20">
             <div onclick="renderCategorie()" class="flex flex-col items-center text-blue-600 cursor-pointer">
                 <i data-lucide="layout-grid"></i>
@@ -43,13 +39,11 @@
             </div>
         </nav>
     </div>
-
     <div id="modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
         <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl overflow-hidden">
             <div id="modal-content"></div>
         </div>
     </div>
-
     <script src="app.js"></script>
 </body>
 </html>
