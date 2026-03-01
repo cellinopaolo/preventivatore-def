@@ -56,7 +56,7 @@ async function renderInterfacciaCalcolo(cat, gamma) {
         htmlSpecial = `<div class="grid grid-cols-2 gap-3"><div class="space-y-2"><label class="text-[9px] font-black uppercase text-slate-400 ml-4 italic">Finitura Posa</label><select id="finitura-pietra" onchange="toggleSfrido(this.value)" class="w-full bg-stone-100 p-4 rounded-2xl font-black italic outline-none border-2 border-transparent focus:border-stone-500 appearance-none"><option value="fugata">FUGATA</option><option value="secco">A SECCO</option></select></div><div id="box-sfrido" class="space-y-2 hidden"><label class="text-[9px] font-black uppercase text-orange-500 ml-4 italic">+ % Materiale</label><input type="number" id="perc-sfrido" class="w-full bg-orange-50 p-4 rounded-2xl font-black italic outline-none border-2 border-orange-200 focus:border-orange-500 text-center" value="15"></div></div>`;
     }
 
-    const unitOptions = gamma === "Posa incerta" ? `<option value="auto">AUTO (M2/ML)</option><option value="pz">PEZZI</option>` : `<option value="mq">MQ</option><option value="pz">PEZZI</option>`;
+    const unitOptions = (gamma === "Posa incerta" || gamma === "Pannelli preassemblati") ? `<option value="auto">AUTO (M2/ML)</option><option value="pz">PEZZI</option>` : `<option value="mq">MQ</option><option value="pz">PEZZI</option>`;
 
     c.innerHTML = `
         <div class="mb-4 italic"><p class="text-[10px] font-black text-blue-600 uppercase">${cat} / ${gamma}</p></div>
@@ -69,7 +69,7 @@ async function renderInterfacciaCalcolo(cat, gamma) {
             <button onclick="eseguiCalcoloCommerciale()" class="w-full bg-blue-600 text-white py-5 rounded-[2rem] font-black uppercase italic shadow-xl active:scale-95 transition-all">Calcola Totale</button>
             <div id="risultato" class="hidden bg-slate-900 p-6 rounded-[2rem] text-white italic space-y-3 shadow-2xl">
                 <div class="flex justify-between text-[10px] uppercase opacity-60"><span>Sconto Composto</span> <span id="res-sconto-base"></span></div>
-                <div class="flex justify-between text-[10px] uppercase opacity-60"><span>Pezzi Finali</span> <span id="res-pz"></span></div>
+                <div class="flex justify-between text-[10px] uppercase opacity-60"><span>Quantità Finale</span> <span id="res-pz"></span></div>
                 <div class="flex justify-between text-[10px] uppercase opacity-60"><span>Vincolo Logistico</span> <span id="res-vincolo"></span></div>
                 <div class="flex justify-between items-end pt-2 border-t border-white/10"><span class="text-xs font-black uppercase text-blue-400">TOTALE FINALE</span><span id="res-p" class="text-3xl font-black tracking-tighter"></span></div>
                 <p id="iva-note" class="text-[8px] uppercase text-center opacity-40 pt-2"></p>
@@ -95,109 +95,68 @@ function eseguiCalcoloCommerciale() {
     const isPrivato = document.getElementById('c-type').value === 'privato';
     const isAngolare = p.name.includes("Angolare");
 
-    // Applicazione Sfrido per Posa a Secco
-    let qtyConSfrido = mainQtyInput;
+    let qtyLavorazione = mainQtyInput;
     if (p.range === "Posa incerta") {
         const finitura = document.getElementById('finitura-pietra').value;
         if (finitura === 'secco') {
             const percSfrido = parseFloat(document.getElementById('perc-sfrido').value) || 0;
-            qtyConSfrido = mainQtyInput * (1 + percSfrido / 100);
+            qtyLavorazione = mainQtyInput * (1 + percSfrido / 100);
         }
     }
 
-    let pzMqEffettivo = p.pz_mq;
-    if (p.range === "Fortis") {
-        const tipoPosa = document.getElementById('tipo-posa').value;
-        pzMqEffettivo = (tipoPosa === "coltello") ? p.pz_mq_coltello : p.pz_mq_piatto;
-    }
-
-    // Calcolo Pezzi Richiesti
-    let pzRichiesti;
-    if (p.range === "Posa incerta") {
-        if (unitType === 'auto') {
-            const factor = isAngolare ? (p.pz_ml || 1) : (p.pz_mq || 1);
-            pzRichiesti = Math.ceil((qtyConSfrido + extraQty) * factor);
-        } else {
-            pzRichiesti = (qtyConSfrido + extraQty);
-        }
-    } else {
-        pzRichiesti = (unitType === 'mq') ? Math.ceil((qtyConSfrido + extraQty) * pzMqEffettivo) : (qtyConSfrido + extraQty);
-    }
-
-    let pzFinali = pzRichiesti;
+    // Calcolo Quantità Finale e Vincoli
+    let qtyFinale;
     let vincoloMsg = "";
     const sfusoVal = (p.sfuso || "").toString().trim().toLowerCase();
 
-    // Logica Arrotondamento (Gamme Blindate)
-    if (p.range === "Posa incerta") {
-        pzFinali = pzRichiesti; vincoloMsg = "Vendita Libera";
-    } else if (p.range === "Croma") {
-        if (sfusoVal === 'no') { pzFinali = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale; vincoloMsg = "Bancale Intero"; }
-        else { pzFinali = pzRichiesti; vincoloMsg = "Vendita Libera"; }
-    } else if (p.range === "Genesis") {
-        pzFinali = (sfusoVal === 'no') ? Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale : Math.ceil(pzRichiesti / p.pz_scatola) * p.pz_scatola;
-        vincoloMsg = (sfusoVal === 'no') ? "Bancale Intero" : "Scatola Intera";
-    } else if (p.range === "Futura") {
-        pzFinali = pzRichiesti; vincoloMsg = "Vendita Libera";
+    if (p.range === "Pannelli preassemblati") {
+        const mqRichiesti = qtyLavorazione + extraQty;
+        qtyFinale = Math.ceil(mqRichiesti / p.m2_scatola) * p.m2_scatola;
+        vincoloMsg = "Arrotondamento Scatola";
+    } else if (p.range === "Posa incerta") {
+        qtyFinale = qtyLavorazione + extraQty;
+        vincoloMsg = "Vendita Libera";
     } else if (p.range === "Fortis" || p.range === "Cotto") {
-        pzFinali = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale; vincoloMsg = "Bancale Intero";
+        const pzRichiesti = (unitType === 'mq') ? Math.ceil((qtyLavorazione + extraQty) * p.pz_mq) : (qtyLavorazione + extraQty);
+        qtyFinale = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale;
+        vincoloMsg = "Bancale Intero";
+    } else {
+        // Logica standard per Mattoni
+        const pzRichiesti = (unitType === 'mq') ? Math.ceil((qtyLavorazione + extraQty) * p.pz_mq) : (qtyLavorazione + extraQty);
+        qtyFinale = pzRichiesti;
+        if (p.range === "Croma" && sfusoVal === 'no') {
+            qtyFinale = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale;
+            vincoloMsg = "Bancale Intero";
+        } else if (p.range === "Genesis") {
+            qtyFinale = (sfusoVal === 'no') ? Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale : Math.ceil(pzRichiesti / p.pz_scatola) * p.pz_scatola;
+            vincoloMsg = (sfusoVal === 'no') ? "Bancale Intero" : "Scatola Intera";
+        } else {
+            vincoloMsg = "Vendita Libera";
+        }
     }
 
     // Logica Sconti
     let baseDisc = 45;
-    if (p.range === "Posa incerta") {
-        if (isAngolare) {
-            baseDisc = (pzFinali >= p.pz_bancale) ? 50 : 45;
-        } else {
-            const mqEffettivi = (unitType === 'auto') ? (qtyConSfrido + extraQty) : (pzFinali / (p.pz_mq || 1));
-            baseDisc = (mqEffettivi >= (p.m2_bancale || 9999)) ? 50 : 45;
-        }
+    if (p.range === "Pannelli preassemblati" || p.range === "Posa incerta") {
+        const mqPerSconto = (p.range === "Pannelli preassemblati") ? qtyFinale : qtyFinale;
+        baseDisc = (mqPerSconto >= (p.m2_bancale || 9999)) ? 50 : 45;
     } else {
-        baseDisc = (pzFinali >= p.pz_bancale) ? 50 : 45;
+        baseDisc = (qtyFinale >= p.pz_bancale) ? 50 : 45;
     }
 
     const priceScontato = p.price * (1 - baseDisc / 100) * (1 - extraDisc / 100);
-    
-    // --- CALCOLO IMPONIBILE FINALE ---
-    let imponibile;
-    if (p.range === "Posa incerta" && !isAngolare) {
-        // Per la pietra piana: Prezzo Scontato * MQ Effettivi (con sfrido)
-        const mqFinaliPerCalcolo = (unitType === 'auto') ? (qtyConSfrido + extraQty) : (pzFinali / (p.pz_mq || 1));
-        imponibile = (mqFinaliPerCalcolo * priceScontato) + transport;
-    } else {
-        // Per Angolari e Mattoni: Prezzo Scontato * Numero di Pezzi
-        imponibile = (pzFinali * priceScontato) + transport;
-    }
-
+    const imponibile = (qtyFinale * priceScontato) + transport;
     const totale = isPrivato ? imponibile * 1.22 : imponibile;
 
     document.getElementById('risultato').classList.remove('hidden');
     document.getElementById('res-sconto-base').innerText = `${baseDisc}% + ${extraDisc}%`;
-    document.getElementById('res-pz').innerText = pzFinali + " pz";
+    document.getElementById('res-pz').innerText = qtyFinale.toFixed(2) + (p.range === "Pannelli preassemblati" ? " m2" : " pz");
     document.getElementById('res-vincolo').innerText = vincoloMsg;
     document.getElementById('res-p').innerText = "€" + totale.toLocaleString('it-IT', {minimumFractionDigits: 2});
     document.getElementById('iva-note').innerText = isPrivato ? "Incl. IVA 22% e Trasp." : "Escl. IVA, Incl. Trasp.";
 }
 
-// --- GESTIONE LISTINI (INVARIATA) ---
-function renderGestionale() {
-    const c = document.getElementById('content');
-    document.getElementById('back-btn').classList.add('hidden');
-    let h = `<h2 class="text-2xl font-black mb-6 uppercase italic">Gestione Listini</h2><div class="space-y-4 pb-24">`;
-    for (const [cat, info] of Object.entries(STRUTTURA)) {
-        h += `<div class="bg-white rounded-[2rem] border-2 border-slate-100 overflow-hidden shadow-sm">
-            <div class="${info.colore} p-4 text-white font-black uppercase italic text-[10px] tracking-widest">${cat}</div>
-            <div class="p-4 space-y-2">${info.gamme.map(g => `
-                <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border">
-                    <span class="font-bold text-[10px] uppercase text-slate-500">${g}</span>
-                    <input type="file" id="f-${cat}-${g}" accept=".csv" class="hidden" onchange="importa('${cat}','${g}',event)">
-                    <label for="f-${cat}-${g}" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-black uppercase text-[9px] cursor-pointer">Carica CSV</label>
-                </div>`).join('')}</div></div>`;
-    }
-    c.innerHTML = h + `</div>`;
-    lucide.createIcons();
-}
-
+// --- GESTIONE LISTINI ---
 async function importa(cat, gamma, e) {
     const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
@@ -205,37 +164,37 @@ async function importa(cat, gamma, e) {
         const text = event.target.result;
         const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
         const header = lines[0].split(/[,;]/).map(h => h.trim().toLowerCase());
-        const idx = { nome: header.indexOf("nome"), prezzo: header.indexOf("prezzo_pz") !== -1 ? header.indexOf("prezzo_pz") : header.indexOf("prezzo_unita"), pz_mq: header.indexOf("pz_m2"), pz_ml: header.indexOf("pz_ml"), m2_bancale: header.indexOf("m2_bancale"), pz_mq_p: header.indexOf("pz_m2_piatto"), pz_mq_c: header.indexOf("pz_m2_coltello"), pz_scatola: header.indexOf("pz_scatola"), pz_bancale: header.indexOf("pz_bancale"), kg_bancale: header.indexOf("kg_bancale"), sfuso: header.indexOf("sfuso") };
-        const batch = []; await db.prodotti.where({ category: cat, range: gamma }).delete();
+        const idx = { 
+            nome: header.indexOf("nome"), 
+            prezzo: header.indexOf("prezzo_m2") !== -1 ? header.indexOf("prezzo_m2") : (header.indexOf("prezzo_pz") !== -1 ? header.indexOf("prezzo_pz") : header.indexOf("prezzo_unita")),
+            m2_scatola: header.indexOf("m2_scatola"),
+            m2_bancale: header.indexOf("m2_bancale"),
+            pz_mq: header.indexOf("pz_m2"),
+            pz_scatola: header.indexOf("pz_scatola"),
+            pz_bancale: header.indexOf("pz_bancale"),
+            sfuso: header.indexOf("sfuso")
+        };
+
+        const batch = [];
+        await db.prodotti.where({ category: cat, range: gamma }).delete();
+
         for(let i = 1; i < lines.length; i++) {
             const c = lines[i].split(/[,;]/).map(val => val.trim());
             if (!c[idx.nome]) continue;
             let item = { category: cat, range: gamma, name: c[idx.nome], price: parseFloat(c[idx.prezzo]?.replace(',', '.')) || 0, sfuso: idx.sfuso !== -1 ? c[idx.sfuso].toLowerCase() : 'no' };
-            if (gamma === "Fortis") {
-                item.pz_mq_piatto = parseFloat(c[idx.pz_mq_p]?.replace(',', '.')) || 0;
-                item.pz_mq_coltello = parseFloat(c[idx.pz_mq_c]?.replace(',', '.')) || 0;
-                item.pz_bancale = parseInt(c[idx.pz_bancale]) || 1;
-                item.pz_mq = item.pz_mq_piatto;
-            } else if (gamma === "Posa incerta") {
-                item.pz_ml = parseFloat(c[idx.pz_ml]?.replace(',', '.')) || 0;
-                item.m2_bancale = parseFloat(c[idx.m2_bancale]?.replace(',', '.')) || 0;
-                item.pz_bancale = parseInt(c[idx.pz_bancale]) || 1;
-                item.pz_mq = parseFloat(c[idx.pz_mq]?.replace(',', '.')) || 1;
-            } else if (gamma === "Cotto" || gamma === "Croma") {
-                item.pz_mq = parseFloat(c[idx.pz_mq]?.replace(',', '.')) || 1;
-                item.pz_bancale = parseInt(c[idx.pz_bancale]) || 1;
-                item.kg_bancale = parseFloat(c[idx.kg_bancale]?.replace(',', '.')) || 0;
-                item.pz_scatola = 0;
+            
+            if (gamma === "Pannelli preassemblati") {
+                item.m2_scatola = parseFloat(c[idx.m2_scatola]?.replace(',', '.')) || 1;
+                item.m2_bancale = parseFloat(c[idx.m2_bancale]?.replace(',', '.')) || 999;
             } else {
                 item.pz_mq = parseFloat(c[idx.pz_mq]?.replace(',', '.')) || 1;
-                item.pz_scatola = idx.pz_scatola !== -1 ? parseInt(c[idx.pz_scatola]) : 0;
+                item.pz_scatola = parseInt(c[idx.pz_scatola]) || 0;
                 item.pz_bancale = parseInt(c[idx.pz_bancale]) || 1;
-                item.kg_bancale = parseFloat(c[idx.kg_bancale]?.replace(',', '.')) || 0;
             }
             batch.push(item);
         }
         await db.prodotti.bulkAdd(batch);
-        alert(`SUCCESSO: Listino ${gamma} caricato!`); renderGestionale();
+        alert(`SUCCESSO: Listino ${gamma} caricato!`);
     };
     reader.readAsText(file);
 }
