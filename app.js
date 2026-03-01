@@ -8,7 +8,7 @@ const STRUTTURA = {
     "Legno": { gamme: ["Rivestimenti", "Pavimenti"], colore: "bg-amber-800", icona: "tree-deciduous" }
 };
 
-// Inizializzazione icone e vista
+// Inizializzazione
 async function init() { renderCategorie(); lucide.createIcons(); }
 
 // --- NAVIGAZIONE ---
@@ -115,7 +115,6 @@ function eseguiCalcoloCommerciale() {
     const transport = parseFloat(document.getElementById('cost-trans').value) || 0;
     const isPrivato = document.getElementById('c-type').value === 'privato';
 
-    // 1. Determina PZ/MQ per posa (solo Fortis usa colonne diverse)
     let pzMqEffettivo = p.pz_mq;
     let posaInfo = "";
     if (p.range === "Fortis") {
@@ -124,59 +123,57 @@ function eseguiCalcoloCommerciale() {
         posaInfo = (tipoPosa === "coltello") ? "Coltello | " : "Piatto | ";
     }
 
-    // 2. Calcolo pezzi richiesti base
     let pzRichiesti = (unitType === 'mq') ? Math.ceil((mainQty + extraQty) * pzMqEffettivo) : (mainQty + extraQty);
     let pzFinali = pzRichiesti;
     let vincoloMsg = "";
 
-    // 3. APPLICAZIONE REGOLE PER GAMMA
+    // Pulizia valore sfuso per sicurezza
+    const sfusoVal = p.sfuso ? p.sfuso.trim().toLowerCase() : 'no';
+
+    // APPLICAZIONE REGOLE PER GAMMA
     if (p.range === "Genesis") {
-        // Regola Genesis: sfuso no -> bancale, sfuso si -> scatola
-        pzFinali = (p.sfuso === 'no') ? Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale : Math.ceil(pzRichiesti / p.pz_scatola) * p.pz_scatola;
-        vincoloMsg = (p.sfuso === 'no') ? "Bancale Intero" : "Scatola Intera";
+        pzFinali = (sfusoVal === 'no') ? Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale : Math.ceil(pzRichiesti / p.pz_scatola) * p.pz_scatola;
+        vincoloMsg = (sfusoVal === 'no') ? "Bancale Intero" : "Scatola Intera";
     } 
     else if (p.range === "Futura") {
-        // Regola Futura: Vendita libera sempre
         pzFinali = pzRichiesti;
         vincoloMsg = "Vendita Libera";
     } 
     else if (p.range === "Croma") {
-        // Regola Croma: sfuso no -> bancale, sfuso si -> libera
-        if (p.sfuso === 'no') {
+        // Correzione: se sfuso è "no", arrotonda al bancale
+        if (sfusoVal === 'no') {
             pzFinali = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale;
-            vincoloMsg = "Bancale Intero";
+            vincoloMsg = "Bancale Intero (Sfuso NO)";
         } else {
             pzFinali = pzRichiesti;
             vincoloMsg = "Vendita Libera (Sfuso SÌ)";
         }
     } 
     else if (p.range === "Fortis" || p.range === "Cotto") {
-        // Regola Fortis/Cotto: Sempre bancale intero
         pzFinali = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale;
         vincoloMsg = "Bancale Intero";
     }
 
-    // 4. Calcolo Sconti (45% base, 50% se raggiunge bancale)
+    // Calcolo Sconti e Totale
     const baseDisc = (pzFinali >= p.pz_bancale) ? 50 : 45;
     const priceScontato = p.price * (1 - baseDisc / 100) * (1 - extraDisc / 100);
     const imponibile = (pzFinali * priceScontato) + transport;
     const totale = isPrivato ? imponibile * 1.22 : imponibile;
 
-    // 5. Render Risultati
-    const box = document.getElementById('risultato');
-    box.classList.remove('hidden');
+    // Output
+    document.getElementById('risultato').classList.remove('hidden');
     document.getElementById('res-sconto-base').innerText = `${baseDisc}% + ${extraDisc}%`;
     document.getElementById('res-pz').innerText = pzFinali + " pz";
     document.getElementById('res-vincolo').innerText = posaInfo + vincoloMsg;
     document.getElementById('res-p').innerText = "€" + totale.toLocaleString('it-IT', {minimumFractionDigits: 2});
-    document.getElementById('iva-note').innerText = isPrivato ? "Include IVA 22% e Trasporto" : "Prezzo IVA esclusa, include Trasporto";
+    document.getElementById('iva-note').innerText = isPrivato ? "Incl. IVA 22% e Trasp." : "Escl. IVA, Incl. Trasp.";
 }
 
-// --- GESTIONE LISTINI (IMPORTAZIONE CSV) ---
+// --- GESTIONE LISTINI ---
 function renderGestionale() {
     const c = document.getElementById('content');
     document.getElementById('back-btn').classList.add('hidden');
-    let h = `<h2 class="text-2xl font-black mb-6 uppercase italic">Configurazione Listini</h2><div class="space-y-4 pb-24">`;
+    let h = `<h2 class="text-2xl font-black mb-6 uppercase italic">Gestione Listini</h2><div class="space-y-4 pb-24">`;
     for (const [cat, info] of Object.entries(STRUTTURA)) {
         h += `<div class="bg-white rounded-[2rem] border-2 border-slate-100 overflow-hidden shadow-sm">
             <div class="${info.colore} p-4 text-white font-black uppercase italic text-[10px] tracking-widest">${cat}</div>
@@ -198,22 +195,18 @@ async function importa(cat, gamma, e) {
         const lines = event.target.result.split(/\r?\n/);
         const batch = [];
         await db.prodotti.where({ category: cat, range: gamma }).delete();
-        
         lines.forEach((line, i) => {
             const c = line.split(/[,;]/); 
             if (i > 0 && c[2]) {
                 let item = { category: cat, range: gamma, name: c[2].trim(), price: parseFloat(c[3]?.replace(',', '.')) || 0 };
-                
                 if (gamma === "Fortis") {
-                    // Mappatura specifica per listino Fortis (colonne E, F, G, H, I)
                     item.pz_mq_coltello = parseFloat(c[4]?.replace(',', '.')) || 0;
                     item.pz_mq_piatto = parseFloat(c[5]?.replace(',', '.')) || 0;
                     item.pz_bancale = parseInt(c[6]) || 1;
                     item.kg_bancale = parseFloat(c[7]?.replace(',', '.')) || 0;
                     item.sfuso = c[8] ? c[8].trim().toLowerCase() : 'no';
-                    item.pz_mq = item.pz_mq_piatto; // Default mq
+                    item.pz_mq = item.pz_mq_piatto;
                 } else {
-                    // Mappatura Standard (Genesis, Futura, Croma, Cotto)
                     item.pz_mq = parseFloat(c[4]?.replace(',', '.')) || 1;
                     item.pz_scatola = parseInt(c[5]) || 0;
                     item.pz_bancale = parseInt(c[6]) || 1;
@@ -224,11 +217,10 @@ async function importa(cat, gamma, e) {
             }
         });
         await db.prodotti.bulkAdd(batch);
-        alert(`Aggiornato ${gamma}`);
+        alert(`Listino ${gamma} aggiornato!`);
         renderGestionale();
     };
     reader.readAsText(file);
 }
 
-// Avvio
 init();
