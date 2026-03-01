@@ -58,6 +58,11 @@ async function renderInterfacciaCalcolo(cat, gamma) {
             </select>
         </div>` : "";
 
+    // Testo dinamico per l'unità di misura in base al prodotto (per Posa Incerta)
+    const unitOptions = gamma === "Posa incerta" ? 
+        `<option value="auto">AUTO (M2/ML)</option><option value="pz">PEZZI</option>` :
+        `<option value="mq">MQ</option><option value="pz">PEZZI</option>`;
+
     c.innerHTML = `
         <div class="mb-4 italic"><p class="text-[10px] font-black text-blue-600 uppercase">${cat} / ${gamma}</p></div>
         <div class="bg-white p-5 rounded-[2.5rem] border shadow-sm space-y-5">
@@ -73,7 +78,7 @@ async function renderInterfacciaCalcolo(cat, gamma) {
                     <input type="number" id="q-main" class="w-full bg-slate-50 rounded-2xl p-4 text-2xl font-black text-center border focus:border-blue-500 outline-none italic" value="0">
                     <label class="absolute -top-2 left-4 bg-slate-800 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase italic">Quantità</label>
                 </div>
-                <select id="u-type" class="w-full bg-slate-100 p-4 rounded-2xl font-black italic outline-none text-sm"><option value="mq">MQ</option><option value="pz">PEZZI</option></select>
+                <select id="u-type" class="w-full bg-slate-100 p-4 rounded-2xl font-black italic outline-none text-sm">${unitOptions}</select>
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div class="relative">
@@ -120,13 +125,29 @@ function eseguiCalcoloCommerciale() {
         pzMqEffettivo = (tipoPosa === "coltello") ? p.pz_mq_coltello : p.pz_mq_piatto;
     }
 
-    let pzRichiesti = (unitType === 'mq') ? Math.ceil((mainQty + extraQty) * pzMqEffettivo) : (mainQty + extraQty);
+    // Calcolo pzRichiesti con logica specifica per Posa Incerta
+    let pzRichiesti;
+    if (p.range === "Posa incerta") {
+        const isAngolare = p.name.includes("Angolare");
+        if (unitType === 'auto') {
+            const factor = isAngolare ? (p.pz_ml || 1) : (p.pz_mq || 1);
+            pzRichiesti = Math.ceil((mainQty + extraQty) * factor);
+        } else {
+            pzRichiesti = (mainQty + extraQty);
+        }
+    } else {
+        pzRichiesti = (unitType === 'mq') ? Math.ceil((mainQty + extraQty) * pzMqEffettivo) : (mainQty + extraQty);
+    }
+
     let pzFinali = pzRichiesti;
     let vincoloMsg = "";
     const sfusoVal = (p.sfuso || "").toString().trim().toLowerCase();
 
     // APPLICAZIONE REGOLE PER GAMMA
-    if (p.range === "Croma") {
+    if (p.range === "Posa incerta") {
+        pzFinali = pzRichiesti; // Nessun vincolo logistico
+        vincoloMsg = "Vendita Libera";
+    } else if (p.range === "Croma") {
         if (sfusoVal === 'no') {
             pzFinali = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale;
             vincoloMsg = "Bancale Intero (Sfuso NO)";
@@ -187,8 +208,10 @@ async function importa(cat, gamma, e) {
         
         const idx = {
             nome: header.indexOf("nome"),
-            prezzo: header.indexOf("prezzo_pz"),
+            prezzo: header.indexOf("prezzo_pz") !== -1 ? header.indexOf("prezzo_pz") : header.indexOf("prezzo_unita"),
             pz_mq: header.indexOf("pz_m2"),
+            pz_ml: header.indexOf("pz_ml"),
+            m2_bancale: header.indexOf("m2_bancale"),
             pz_mq_p: header.indexOf("pz_m2_piatto"),
             pz_mq_c: header.indexOf("pz_m2_coltello"),
             pz_scatola: header.indexOf("pz_scatola"),
@@ -212,22 +235,25 @@ async function importa(cat, gamma, e) {
                 sfuso: idx.sfuso !== -1 ? c[idx.sfuso].toLowerCase() : 'no'
             };
 
-            // MAPPATURA DIFFERENZIATA PER GAMMA
             if (gamma === "Fortis") {
                 item.pz_mq_piatto = parseFloat(c[idx.pz_mq_p]?.replace(',', '.')) || 0;
                 item.pz_mq_coltello = parseFloat(c[idx.pz_mq_c]?.replace(',', '.')) || 0;
                 item.pz_bancale = parseInt(c[idx.pz_bancale]) || 1;
                 item.pz_mq = item.pz_mq_piatto;
             } 
+            else if (gamma === "Posa incerta") {
+                item.pz_ml = parseFloat(c[idx.pz_ml]?.replace(',', '.')) || 0;
+                item.m2_bancale = parseFloat(c[idx.m2_bancale]?.replace(',', '.')) || 0;
+                item.pz_bancale = parseInt(c[idx.pz_bancale]) || 1;
+                item.pz_mq = parseFloat(c[idx.pz_mq]?.replace(',', '.')) || 1;
+            }
             else if (gamma === "Cotto" || gamma === "Croma") {
-                // Per Cotto e Croma ignoriamo pz_scatola per evitare scalamenti di colonne
                 item.pz_mq = parseFloat(c[idx.pz_mq]?.replace(',', '.')) || 1;
                 item.pz_bancale = parseInt(c[idx.pz_bancale]) || 1;
                 item.kg_bancale = parseFloat(c[idx.kg_bancale]?.replace(',', '.')) || 0;
                 item.pz_scatola = 0;
             } 
             else {
-                // Genesis e Futura standard
                 item.pz_mq = parseFloat(c[idx.pz_mq]?.replace(',', '.')) || 1;
                 item.pz_scatola = idx.pz_scatola !== -1 ? parseInt(c[idx.pz_scatola]) : 0;
                 item.pz_bancale = parseInt(c[idx.pz_bancale]) || 1;
