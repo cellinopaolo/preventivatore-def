@@ -57,15 +57,12 @@ async function renderInterfacciaCalcolo(cat, gamma) {
         htmlSpecial = `<div class="grid grid-cols-2 gap-3"><div class="space-y-2"><label class="text-[9px] font-black uppercase text-slate-400 ml-4 italic">Finitura Posa</label><select id="finitura-pietra" onchange="toggleSfrido(this.value)" class="w-full bg-stone-100 p-4 rounded-2xl font-black italic outline-none border-2 border-transparent focus:border-stone-500 appearance-none"><option value="fugata">FUGATA</option><option value="secco">A SECCO</option></select></div><div id="box-sfrido" class="space-y-2 hidden"><label class="text-[9px] font-black uppercase text-orange-500 ml-4 italic">+ % Materiale</label><input type="number" id="perc-sfrido" class="w-full bg-orange-50 p-4 rounded-2xl font-black italic outline-none border-2 border-orange-200 focus:border-orange-500 text-center" value="15"></div></div>`;
     }
 
-    const isPietra = cat === "Pietra";
-    const unitOptions = isPietra ? `<option value="mq">MQ</option><option value="pz">PEZZI</option>` : `<option value="mq">MQ</option><option value="pz">PEZZI</option>`;
-
     c.innerHTML = `
         <div class="mb-4 italic"><p class="text-[10px] font-black text-blue-600 uppercase">${cat} / ${gamma}</p></div>
         <div class="bg-white p-5 rounded-[2.5rem] border shadow-sm space-y-5">
             <div><label class="text-[9px] font-black uppercase text-slate-400 ml-4 italic">Modello</label><select id="select-prod" class="w-full bg-slate-100 p-4 rounded-2xl font-bold italic outline-none border-2 border-transparent focus:border-blue-500">${prodotti.map(p => `<option value='${JSON.stringify(p)}'>${p.name}</option>`).join('')}</select></div>
             ${htmlSpecial}
-            <div class="grid grid-cols-2 gap-3"><div class="relative"><input type="number" id="q-main" class="w-full bg-slate-50 rounded-2xl p-4 text-2xl font-black text-center border focus:border-blue-500 outline-none italic" value="0"><label class="absolute -top-2 left-4 bg-slate-800 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase italic">Quantità</label></div><select id="u-type" class="w-full bg-slate-100 p-4 rounded-2xl font-black italic outline-none text-sm">${unitOptions}</select></div>
+            <div class="grid grid-cols-2 gap-3"><div class="relative"><input type="number" id="q-main" class="w-full bg-slate-50 rounded-2xl p-4 text-2xl font-black text-center border focus:border-blue-500 outline-none italic" value="0"><label class="absolute -top-2 left-4 bg-slate-800 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase italic">Quantità</label></div><select id="u-type" class="w-full bg-slate-100 p-4 rounded-2xl font-black italic outline-none text-sm"><option value="mq">MQ</option><option value="pz">PEZZI</option></select></div>
             <div class="grid grid-cols-2 gap-3"><div class="relative"><input type="number" id="q-extra" class="w-full bg-slate-50 rounded-2xl p-4 text-xl font-black text-center border outline-none italic" value="0"><label class="absolute -top-2 left-4 bg-blue-600 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase italic">Extra</label></div><div class="relative"><input type="number" id="d-extra" class="w-full bg-slate-50 rounded-2xl p-4 text-xl font-black text-center border outline-none italic" value="0"><label class="absolute -top-2 left-4 bg-orange-500 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase italic">Sconto Extra %</label></div></div>
             <div class="grid grid-cols-2 gap-3"><div class="relative"><input type="number" id="cost-trans" class="w-full bg-slate-50 rounded-2xl p-4 text-xl font-black text-center border outline-none italic" value="0"><label class="absolute -top-2 left-4 bg-slate-500 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase italic">Trasporto €</label></div><select id="c-type" class="w-full bg-slate-100 p-4 rounded-2xl font-black italic outline-none text-[10px] uppercase"><option value="azienda">Azienda</option><option value="privato">Privato</option></select></div>
             <button onclick="eseguiCalcoloCommerciale()" class="w-full bg-blue-600 text-white py-5 rounded-[2rem] font-black uppercase italic shadow-xl active:scale-95 transition-all">Calcola Totale</button>
@@ -78,12 +75,6 @@ async function renderInterfacciaCalcolo(cat, gamma) {
             </div>
         </div>`;
     lucide.createIcons();
-}
-
-function toggleSfrido(val) {
-    const box = document.getElementById('box-sfrido');
-    if (val === 'secco') box.classList.remove('hidden');
-    else box.classList.add('hidden');
 }
 
 // --- LOGICA DI CALCOLO COMMERCIALE ---
@@ -113,13 +104,25 @@ function eseguiCalcoloCommerciale() {
         vincoloMsg = "Arrotondamento Scatola";
         baseDisc = (qtyVenduta >= (parseFloat(p.m2_bancale) || 999)) ? 50 : 45;
     } 
+    else if (p.range === "Pavimenti" && p.category === "Pietra") {
+        const totalQty = qtyLavorazione + extraQty;
+        const m2banc = parseFloat(p.m2_bancale) || 999;
+        if (p.sfuso === "no") {
+            qtyVenduta = Math.ceil(totalQty / m2banc) * m2banc;
+            vincoloMsg = "Bancale Intero";
+        } else {
+            qtyVenduta = totalQty;
+            vincoloMsg = "Vendita Libera";
+        }
+        baseDisc = (qtyVenduta >= m2banc) ? 50 : 45;
+    }
     else if (p.range === "Posa incerta" || p.range === "Taglio rettangolare") {
         qtyVenduta = qtyLavorazione + extraQty;
         vincoloMsg = "Vendita Libera";
         baseDisc = (qtyVenduta >= (parseFloat(p.m2_bancale) || 999)) ? 50 : 45;
     } 
     else {
-        // MATTONI
+        // MATTONI (GENESIS, CROMA, ETC)
         let pzMq = p.pz_mq;
         if (p.range === "Fortis") {
             pzMq = (document.getElementById('tipo-posa').value === "coltello") ? p.pz_mq_coltello : p.pz_mq_piatto;
@@ -151,7 +154,7 @@ function eseguiCalcoloCommerciale() {
     document.getElementById('iva-note').innerText = isPrivato ? "Incl. IVA 22% e Trasp." : "Escl. IVA, Incl. Trasp.";
 }
 
-// --- GESTIONALE ---
+// --- GESTIONALE E IMPORTAZIONE ---
 function renderGestionale() {
     const c = document.getElementById('content');
     const b = document.getElementById('back-btn');
@@ -180,25 +183,27 @@ async function importa(cat, gamma, e) {
         const header = lines[0].split(/[,;]/).map(h => h.trim().toLowerCase());
         const idx = {
             nome: header.indexOf("nome"),
-            prezzo: header.indexOf("prezzo_m2") !== -1 ? header.indexOf("prezzo_m2") : (header.indexOf("prezzo_pz") !== -1 ? header.indexOf("prezzo_pz") : header.indexOf("prezzo_unita")),
+            prezzo: header.indexOf("prezzo_m2") !== -1 ? header.indexOf("prezzo_m2") : header.indexOf("prezzo_unita"),
             m2_banc: header.indexOf("m2_bancale"), m2_scat: header.indexOf("m2_scatola"),
             pz_mq: header.indexOf("pz_m2"), pz_banc: header.indexOf("pz_bancale"),
-            pz_scat: header.indexOf("pz_scatola"), sfuso: header.indexOf("sfuso"),
-            kg_banc: header.indexOf("kg_bancale")
+            pz_scat: header.indexOf("pz_scatola"), sfuso: header.indexOf("sfuso")
         };
         const batch = [];
         await db.prodotti.where({ category: cat, range: gamma }).delete();
         for(let i = 1; i < lines.length; i++) {
             const c = lines[i].split(/[,;]/).map(val => val.trim());
             if (!c[idx.nome]) continue;
-            let item = { category: cat, range: gamma, name: c[idx.nome], price: parseFloat(c[idx.prezzo]?.replace(',', '.')) || 0, sfuso: idx.sfuso !== -1 ? c[idx.sfuso].toLowerCase() : 'no' };
-            
+            let item = { 
+                category: cat, 
+                range: gamma, 
+                name: c[idx.nome], 
+                price: parseFloat(c[idx.prezzo]?.replace(',', '.')) || 0, 
+                sfuso: idx.sfuso !== -1 ? c[idx.sfuso].toLowerCase() : 'sì' 
+            };
             item.m2_bancale = parseFloat(c[idx.m2_banc]?.replace(',', '.')) || 999;
             item.m2_scatola = parseFloat(c[idx.m2_scat]?.replace(',', '.')) || 1;
             item.pz_mq = parseFloat(c[idx.pz_mq]?.replace(',', '.')) || 1;
             item.pz_bancale = parseInt(c[idx.pz_banc]) || 1;
-            item.pz_scatola = parseInt(c[idx.pz_scat]) || 0;
-            
             batch.push(item);
         }
         await db.prodotti.bulkAdd(batch);
