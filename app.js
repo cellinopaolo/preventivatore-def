@@ -1,4 +1,4 @@
-// Configurazione Database Locale (Dexie.js)
+// Configurazione Database Locale
 const db = new Dexie("PreventiviDB");
 db.version(1).stores({ prodotti: "++id, category, range, name" });
 
@@ -8,7 +8,6 @@ const STRUTTURA = {
     "Legno": { gamme: ["Rivestimenti", "Pavimenti"], colore: "bg-amber-800", icona: "tree-deciduous" }
 };
 
-// Inizializzazione
 async function init() { renderCategorie(); lucide.createIcons(); }
 
 // --- NAVIGAZIONE ---
@@ -116,31 +115,17 @@ function eseguiCalcoloCommerciale() {
     const isPrivato = document.getElementById('c-type').value === 'privato';
 
     let pzMqEffettivo = p.pz_mq;
-    let posaInfo = "";
     if (p.range === "Fortis") {
         const tipoPosa = document.getElementById('tipo-posa').value;
         pzMqEffettivo = (tipoPosa === "coltello") ? p.pz_mq_coltello : p.pz_mq_piatto;
-        posaInfo = (tipoPosa === "coltello") ? "Coltello | " : "Piatto | ";
     }
 
     let pzRichiesti = (unitType === 'mq') ? Math.ceil((mainQty + extraQty) * pzMqEffettivo) : (mainQty + extraQty);
     let pzFinali = pzRichiesti;
     let vincoloMsg = "";
-
-    // Pulizia valore sfuso per sicurezza
     const sfusoVal = p.sfuso ? p.sfuso.trim().toLowerCase() : 'no';
 
-    // APPLICAZIONE REGOLE PER GAMMA
-    if (p.range === "Genesis") {
-        pzFinali = (sfusoVal === 'no') ? Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale : Math.ceil(pzRichiesti / p.pz_scatola) * p.pz_scatola;
-        vincoloMsg = (sfusoVal === 'no') ? "Bancale Intero" : "Scatola Intera";
-    } 
-    else if (p.range === "Futura") {
-        pzFinali = pzRichiesti;
-        vincoloMsg = "Vendita Libera";
-    } 
-    else if (p.range === "Croma") {
-        // Correzione: se sfuso è "no", arrotonda al bancale
+    if (p.range === "Croma") {
         if (sfusoVal === 'no') {
             pzFinali = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale;
             vincoloMsg = "Bancale Intero (Sfuso NO)";
@@ -148,23 +133,26 @@ function eseguiCalcoloCommerciale() {
             pzFinali = pzRichiesti;
             vincoloMsg = "Vendita Libera (Sfuso SÌ)";
         }
-    } 
-    else if (p.range === "Fortis" || p.range === "Cotto") {
+    } else if (p.range === "Genesis") {
+        pzFinali = (sfusoVal === 'no') ? Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale : Math.ceil(pzRichiesti / p.pz_scatola) * p.pz_scatola;
+        vincoloMsg = (sfusoVal === 'no') ? "Bancale Intero" : "Scatola Intera";
+    } else if (p.range === "Futura") {
+        pzFinali = pzRichiesti;
+        vincoloMsg = "Vendita Libera";
+    } else if (p.range === "Fortis" || p.range === "Cotto") {
         pzFinali = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale;
         vincoloMsg = "Bancale Intero";
     }
 
-    // Calcolo Sconti e Totale
     const baseDisc = (pzFinali >= p.pz_bancale) ? 50 : 45;
     const priceScontato = p.price * (1 - baseDisc / 100) * (1 - extraDisc / 100);
     const imponibile = (pzFinali * priceScontato) + transport;
     const totale = isPrivato ? imponibile * 1.22 : imponibile;
 
-    // Output
     document.getElementById('risultato').classList.remove('hidden');
     document.getElementById('res-sconto-base').innerText = `${baseDisc}% + ${extraDisc}%`;
     document.getElementById('res-pz').innerText = pzFinali + " pz";
-    document.getElementById('res-vincolo').innerText = posaInfo + vincoloMsg;
+    document.getElementById('res-vincolo').innerText = vincoloMsg;
     document.getElementById('res-p').innerText = "€" + totale.toLocaleString('it-IT', {minimumFractionDigits: 2});
     document.getElementById('iva-note').innerText = isPrivato ? "Incl. IVA 22% e Trasp." : "Escl. IVA, Incl. Trasp.";
 }
@@ -199,6 +187,7 @@ async function importa(cat, gamma, e) {
             const c = line.split(/[,;]/); 
             if (i > 0 && c[2]) {
                 let item = { category: cat, range: gamma, name: c[2].trim(), price: parseFloat(c[3]?.replace(',', '.')) || 0 };
+                
                 if (gamma === "Fortis") {
                     item.pz_mq_coltello = parseFloat(c[4]?.replace(',', '.')) || 0;
                     item.pz_mq_piatto = parseFloat(c[5]?.replace(',', '.')) || 0;
@@ -206,6 +195,13 @@ async function importa(cat, gamma, e) {
                     item.kg_bancale = parseFloat(c[7]?.replace(',', '.')) || 0;
                     item.sfuso = c[8] ? c[8].trim().toLowerCase() : 'no';
                     item.pz_mq = item.pz_mq_piatto;
+                } else if (gamma === "Croma") {
+                    // Mappatura specifica Croma (Sfuso in colonna H/7)
+                    item.pz_mq = parseFloat(c[4]?.replace(',', '.')) || 1;
+                    item.pz_bancale = parseInt(c[5]) || 1;
+                    item.kg_bancale = parseFloat(c[6]?.replace(',', '.')) || 0;
+                    item.sfuso = c[7] ? c[7].trim().toLowerCase() : 'no';
+                    item.pz_scatola = 0;
                 } else {
                     item.pz_mq = parseFloat(c[4]?.replace(',', '.')) || 1;
                     item.pz_scatola = parseInt(c[5]) || 0;
@@ -217,7 +213,7 @@ async function importa(cat, gamma, e) {
             }
         });
         await db.prodotti.bulkAdd(batch);
-        alert(`Listino ${gamma} aggiornato!`);
+        alert(`Listino ${gamma} aggiornato con mappatura corretta!`);
         renderGestionale();
     };
     reader.readAsText(file);
