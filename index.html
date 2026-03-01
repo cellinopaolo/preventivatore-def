@@ -3,7 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Preventivatore iOS</title>
+    <title>Preventivi B&B</title>
+    
+    <link rel="apple-touch-icon" href="icona-512.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icona-512.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="icona-512.png">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Preventivi B&B">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
@@ -22,15 +31,17 @@
             background-color: var(--ios-bg);
             color: #000000;
             -webkit-font-smoothing: antialiased;
+            margin: 0;
+            padding: 0;
         }
 
-        /* Grouped Table Style */
+        /* Grouped Table Style (iOS Settings Look) */
         .ios-group {
             background: var(--ios-card);
             border-radius: 12px;
             margin: 0 16px 24px 16px;
             overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
 
         .ios-row {
@@ -49,7 +60,7 @@
             flex: 1;
         }
 
-        /* Styling Input e Select come iOS Nativo */
+        /* Input & Select Apple Style */
         input, select {
             background: transparent !important;
             border: none !important;
@@ -68,71 +79,75 @@
             color: var(--ios-blue) !important;
         }
 
-        /* Titoli stile iOS 17 */
+        /* iOS 17 Large Titles */
         .nav-header {
             position: sticky;
             top: 0;
             z-index: 50;
-            padding: 50px 20px 10px 20px;
-            background: rgba(242, 242, 247, 0.8);
+            padding: 60px 20px 10px 20px;
+            background: rgba(242, 242, 247, 0.85);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
         }
 
         .large-title {
             font-size: 34px;
-            font-weight: 700;
+            font-weight: 800;
             letter-spacing: -1px;
             margin-left: -2px;
         }
 
+        /* Buttons */
         .btn-primary {
             background-color: var(--ios-blue);
             color: white;
-            border-radius: 12px;
-            padding: 14px;
+            border-radius: 14px;
+            padding: 16px;
             font-weight: 600;
             font-size: 17px;
             width: calc(100% - 32px);
-            margin: 0 16px;
+            margin: 10px 16px;
             transition: transform 0.1s;
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
         }
 
-        .btn-primary:active { transform: scale(0.97); opacity: 0.9; }
+        .btn-primary:active { transform: scale(0.96); opacity: 0.9; }
 
+        /* Bottom Tab Bar */
         .tab-bar {
             position: fixed;
             bottom: 0;
             width: 100%;
-            background: rgba(249, 249, 249, 0.9);
+            background: rgba(249, 249, 249, 0.94);
             backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border-top: 0.5px solid var(--ios-sep);
             display: flex;
             justify-content: space-around;
-            padding: 10px 0 32px 0;
+            padding: 10px 0 34px 0; /* Padding extra per Home Indicator iOS */
         }
     </style>
 </head>
-<body class="pb-40">
+<body class="pb-32">
 
     <header class="nav-header">
-        <div class="flex items-center h-8 mb-2">
-            <button id="back-btn" class="text-[#007AFF] hidden flex items-center font-normal text-lg">
-                <i data-lucide="chevron-left" class="w-7 h-7 -ml-2"></i> Indietro
+        <div class="flex items-center h-8 mb-1">
+            <button id="back-btn" class="text-[#007AFF] hidden flex items-center font-normal text-[17px]">
+                <i data-lucide="chevron-left" class="w-6 h-6 -ml-1"></i> Indietro
             </button>
         </div>
-        <h1 class="large-title" id="page-title">Catalogo</h1>
+        <h1 class="large-title" id="page-title">Preventivi B&B</h1>
     </header>
 
-    <main id="content" class="mt-4 max-w-lg mx-auto"></main>
+    <main id="content" class="mt-2 max-w-lg mx-auto"></main>
 
     <nav class="tab-bar">
-        <button onclick="renderCategorie()" class="flex flex-col items-center">
-            <i data-lucide="layout-grid" class="w-6 h-6 text-[#007AFF]"></i>
-            <span class="text-[10px] mt-1 text-[#007AFF] font-medium">Libreria</span>
+        <button onclick="renderCategorie()" class="flex flex-col items-center group">
+            <i data-lucide="layout-grid" id="icon-cat" class="w-6 h-6 text-[#007AFF]"></i>
+            <span class="text-[10px] mt-1 font-medium text-[#007AFF]">Libreria</span>
         </button>
         <button onclick="renderGestionale()" class="flex flex-col items-center opacity-40">
-            <i data-lucide="database" class="w-6 h-6"></i>
+            <i data-lucide="settings" id="icon-set" class="w-6 h-6"></i>
             <span class="text-[10px] mt-1 font-medium">Listini</span>
         </button>
     </nav>
