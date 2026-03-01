@@ -58,7 +58,6 @@ async function renderInterfacciaCalcolo(cat, gamma) {
             </select>
         </div>` : "";
 
-    // Testo dinamico per l'unità di misura in base al prodotto (per Posa Incerta)
     const unitOptions = gamma === "Posa incerta" ? 
         `<option value="auto">AUTO (M2/ML)</option><option value="pz">PEZZI</option>` :
         `<option value="mq">MQ</option><option value="pz">PEZZI</option>`;
@@ -125,7 +124,6 @@ function eseguiCalcoloCommerciale() {
         pzMqEffettivo = (tipoPosa === "coltello") ? p.pz_mq_coltello : p.pz_mq_piatto;
     }
 
-    // Calcolo pzRichiesti con logica specifica per Posa Incerta
     let pzRichiesti;
     if (p.range === "Posa incerta") {
         const isAngolare = p.name.includes("Angolare");
@@ -145,7 +143,7 @@ function eseguiCalcoloCommerciale() {
 
     // APPLICAZIONE REGOLE PER GAMMA
     if (p.range === "Posa incerta") {
-        pzFinali = pzRichiesti; // Nessun vincolo logistico
+        pzFinali = pzRichiesti;
         vincoloMsg = "Vendita Libera";
     } else if (p.range === "Croma") {
         if (sfusoVal === 'no') {
@@ -166,7 +164,20 @@ function eseguiCalcoloCommerciale() {
         vincoloMsg = "Bancale Intero";
     }
 
-    const baseDisc = (pzFinali >= p.pz_bancale) ? 50 : 45;
+    // LOGICA SCONTI SPECIFICA PIETRA
+    let baseDisc = 45;
+    if (p.range === "Posa incerta") {
+        const isAngolare = p.name.includes("Angolare");
+        if (isAngolare) {
+            baseDisc = (pzFinali >= p.pz_bancale) ? 50 : 45;
+        } else {
+            const mqEffettivi = (unitType === 'auto') ? (mainQty + extraQty) : (pzFinali / (p.pz_mq || 1));
+            baseDisc = (mqEffettivi >= (p.m2_bancale || 9999)) ? 50 : 45;
+        }
+    } else {
+        baseDisc = (pzFinali >= p.pz_bancale) ? 50 : 45;
+    }
+
     const priceScontato = p.price * (1 - baseDisc / 100) * (1 - extraDisc / 100);
     const imponibile = (pzFinali * priceScontato) + transport;
     const totale = isPrivato ? imponibile * 1.22 : imponibile;
@@ -228,9 +239,7 @@ async function importa(cat, gamma, e) {
             if (!c[idx.nome]) continue;
 
             let item = { 
-                category: cat, 
-                range: gamma, 
-                name: c[idx.nome], 
+                category: cat, range: gamma, name: c[idx.nome], 
                 price: parseFloat(c[idx.prezzo]?.replace(',', '.')) || 0,
                 sfuso: idx.sfuso !== -1 ? c[idx.sfuso].toLowerCase() : 'no'
             };
@@ -240,20 +249,17 @@ async function importa(cat, gamma, e) {
                 item.pz_mq_coltello = parseFloat(c[idx.pz_mq_c]?.replace(',', '.')) || 0;
                 item.pz_bancale = parseInt(c[idx.pz_bancale]) || 1;
                 item.pz_mq = item.pz_mq_piatto;
-            } 
-            else if (gamma === "Posa incerta") {
+            } else if (gamma === "Posa incerta") {
                 item.pz_ml = parseFloat(c[idx.pz_ml]?.replace(',', '.')) || 0;
                 item.m2_bancale = parseFloat(c[idx.m2_bancale]?.replace(',', '.')) || 0;
                 item.pz_bancale = parseInt(c[idx.pz_bancale]) || 1;
                 item.pz_mq = parseFloat(c[idx.pz_mq]?.replace(',', '.')) || 1;
-            }
-            else if (gamma === "Cotto" || gamma === "Croma") {
+            } else if (gamma === "Cotto" || gamma === "Croma") {
                 item.pz_mq = parseFloat(c[idx.pz_mq]?.replace(',', '.')) || 1;
                 item.pz_bancale = parseInt(c[idx.pz_bancale]) || 1;
                 item.kg_bancale = parseFloat(c[idx.kg_bancale]?.replace(',', '.')) || 0;
                 item.pz_scatola = 0;
-            } 
-            else {
+            } else {
                 item.pz_mq = parseFloat(c[idx.pz_mq]?.replace(',', '.')) || 1;
                 item.pz_scatola = idx.pz_scatola !== -1 ? parseInt(c[idx.pz_scatola]) : 0;
                 item.pz_bancale = parseInt(c[idx.pz_bancale]) || 1;
@@ -261,9 +267,8 @@ async function importa(cat, gamma, e) {
             }
             batch.push(item);
         }
-
         await db.prodotti.bulkAdd(batch);
-        alert(`SUCCESSO: Listino ${gamma} caricato correttamente!`);
+        alert(`SUCCESSO: Listino ${gamma} caricato!`);
         renderGestionale();
     };
     reader.readAsText(file);
