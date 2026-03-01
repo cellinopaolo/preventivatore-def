@@ -12,82 +12,132 @@
     <style>
         :root {
             --ios-bg: #F2F2F7;
+            --ios-card: #FFFFFF;
             --ios-blue: #007AFF;
+            --ios-sep: #C6C6C8;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --ios-bg: #000000;
+                --ios-card: #1C1C1E;
+                --ios-sep: #38383A;
+            }
+            body { color: white; }
         }
 
         body {
             font-family: 'Inter', -apple-system, sans-serif;
             background-color: var(--ios-bg);
-            color: #000;
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Effetto sfocatura tipico di Apple */
-        .apple-blur {
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(30px);
-            -webkit-backdrop-filter: blur(30px);
-            border: 0.5px solid rgba(255, 255, 255, 0.3);
+        /* Grouped Table Style */
+        .ios-group {
+            background: var(--ios-card);
+            border-radius: 10px;
+            margin-bottom: 20px;
         }
 
-        /* Card sollevate con ombre morbidissime */
-        .ios-card {
-            background: #FFFFFF;
-            border-radius: 24px;
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+        .ios-row {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 0.5px solid var(--ios-sep);
         }
 
-        /* Input che sembrano parte del sistema */
+        .ios-row:last-child { border-bottom: none; }
+
+        .ios-label {
+            font-size: 15px;
+            font-weight: 400;
+            width: 40%;
+            color: inherit;
+        }
+
+        /* Input Invisibili stile iOS */
         input, select {
-            background: #E3E3E8 !important; /* Grigio sistema iOS */
+            background: transparent !important;
             border: none !important;
-            border-radius: 12px !important;
-            padding: 14px !important;
-            font-size: 17px !important;
-            font-weight: 500 !important;
-            color: #000 !important;
             outline: none !important;
+            font-size: 17px !important;
+            color: var(--ios-blue) !important;
+            width: 60%;
+            text-align: right;
+            appearance: none;
+            -webkit-appearance: none;
         }
 
-        /* Animazione al tocco */
-        .ios-press {
-            transition: transform 0.15s ease, opacity 0.15s ease;
-        }
-        .ios-press:active {
-            transform: scale(0.96);
-            opacity: 0.8;
+        input::placeholder { color: #AEAEB2; }
+
+        /* Button Apple Blue */
+        .btn-primary {
+            background-color: var(--ios-blue);
+            color: white;
+            border-radius: 12px;
+            padding: 16px;
+            font-weight: 600;
+            font-size: 17px;
+            width: 100%;
+            margin-top: 10px;
+            transition: opacity 0.2s;
         }
 
-        /* Tab bar inferiore stile iPhone */
-        .tab-bar {
-            background: rgba(249, 249, 249, 0.85);
+        .btn-primary:active { opacity: 0.7; }
+
+        /* Navigation */
+        .nav-header {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            padding: 40px 20px 10px 20px;
+            background: var(--ios-bg);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border-top: 0.3px solid rgba(0,0,0,0.15);
         }
 
-        h1 { letter-spacing: -0.04em; }
+        .large-title {
+            font-size: 34px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .tab-bar {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background: rgba(249, 249, 249, 0.9);
+            backdrop-filter: blur(20px);
+            border-top: 0.5px solid var(--ios-sep);
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0 30px 0;
+        }
     </style>
 </head>
-<body class="pb-32">
+<body class="pb-40">
 
-    <header class="sticky top-0 z-50 px-6 py-4 flex items-center justify-between apple-blur">
-        <button id="back-btn" class="ios-press hidden flex items-center text-[#007AFF] font-medium">
-            <i data-lucide="chevron-left" class="w-6 h-6 mr-1"></i> Indietro
+    <div id="app">
+        <header class="nav-header">
+            <div id="header-top" class="flex justify-between items-center mb-2">
+                <button id="back-btn" class="text-[#007AFF] hidden flex items-center font-medium">
+                    <i data-lucide="chevron-left" class="w-6 h-6"></i> Indietro
+                </button>
+            </div>
+            <h1 class="large-title" id="page-title">Catalogo</h1>
+        </header>
+
+        <main id="content" class="px-4 mt-2 max-w-lg mx-auto"></main>
+    </div>
+
+    <nav class="tab-bar">
+        <button onclick="renderCategorie()" class="flex flex-col items-center">
+            <i data-lucide="grid" class="w-6 h-6 text-[#007AFF]"></i>
+            <span class="text-[10px] mt-1 text-[#007AFF]">Catalogo</span>
         </button>
-        <span class="flex-1 text-center font-semibold text-lg" id="nav-title">App</span>
-        <div class="w-20"></div> </header>
-
-    <main id="content" class="p-6 max-w-lg mx-auto"></main>
-
-    <nav class="fixed bottom-0 left-0 right-0 z-50 tab-bar px-8 pt-3 pb-8 flex justify-around items-center">
-        <button onclick="renderCategorie()" class="ios-press flex flex-col items-center">
-            <i data-lucide="layout" class="w-6 h-6 text-[#007AFF]"></i>
-            <span class="text-[11px] font-medium mt-1 text-[#007AFF]">Libreria</span>
-        </button>
-        <button onclick="renderGestionale()" class="ios-press flex flex-col items-center opacity-40">
-            <i data-lucide="folder-kanban" class="w-6 h-6 text-black"></i>
-            <span class="text-[11px] font-medium mt-1 text-black">Listini</span>
+        <button onclick="renderGestionale()" class="flex flex-col items-center opacity-40">
+            <i data-lucide="settings" class="w-6 h-6"></i>
+            <span class="text-[10px] mt-1">Impostazioni</span>
         </button>
     </nav>
 
