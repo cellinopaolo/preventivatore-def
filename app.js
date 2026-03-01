@@ -1,4 +1,3 @@
-// Configurazione Database Locale
 const db = new Dexie("PreventiviDB");
 db.version(1).stores({ prodotti: "++id, category, range, name" });
 
@@ -8,10 +7,8 @@ const STRUTTURA = {
     "Legno": { gamme: ["Rivestimenti", "Pavimenti"], colore: "bg-amber-800", icona: "tree-deciduous" }
 };
 
-// Inizializzazione
 async function init() { renderCategorie(); lucide.createIcons(); }
 
-// --- NAVIGAZIONE ---
 function renderCategorie() {
     const c = document.getElementById('content');
     document.getElementById('back-btn').classList.add('hidden');
@@ -39,14 +36,13 @@ function renderGamme(cat) {
     lucide.createIcons();
 }
 
-// --- INTERFACCIA CALCOLO ---
 async function renderInterfacciaCalcolo(cat, gamma) {
     const prodotti = await db.prodotti.where({ category: cat, range: gamma }).toArray();
     const c = document.getElementById('content');
     document.getElementById('back-btn').onclick = () => renderGamme(cat);
 
     if (prodotti.length === 0) {
-        c.innerHTML = `<div class="p-10 text-center opacity-30 font-bold uppercase italic">Nessun listino per ${gamma}</div>`;
+        c.innerHTML = `<div class="p-10 text-center opacity-30 font-bold uppercase italic">Carica il listino per ${gamma}</div>`;
         return;
     }
 
@@ -63,9 +59,9 @@ async function renderInterfacciaCalcolo(cat, gamma) {
         <div class="mb-4 italic"><p class="text-[10px] font-black text-blue-600 uppercase">${cat} / ${gamma}</p></div>
         <div class="bg-white p-5 rounded-[2.5rem] border shadow-sm space-y-5">
             <div>
-                <label class="text-[9px] font-black uppercase text-slate-400 ml-4 italic">Seleziona Modello</label>
+                <label class="text-[9px] font-black uppercase text-slate-400 ml-4 italic">Modello</label>
                 <select id="select-prod" class="w-full bg-slate-100 p-4 rounded-2xl font-bold italic outline-none border-2 border-transparent focus:border-blue-500">
-                    ${prodotti.map(p => `<option value='${JSON.stringify(p)}'>${p.name} - €${p.price.toFixed(2)}</option>`).join('')}
+                    ${prodotti.map(p => `<option value='${JSON.stringify(p)}'>${p.name}</option>`).join('')}
                 </select>
             </div>
             ${htmlPosaFortis}
@@ -94,9 +90,9 @@ async function renderInterfacciaCalcolo(cat, gamma) {
                 <select id="c-type" class="w-full bg-slate-100 p-4 rounded-2xl font-black italic outline-none text-[10px] uppercase"><option value="azienda">Azienda</option><option value="privato">Privato</option></select>
             </div>
             <button onclick="eseguiCalcoloCommerciale()" class="w-full bg-blue-600 text-white py-5 rounded-[2rem] font-black uppercase italic shadow-xl active:scale-95 transition-all">Calcola Totale</button>
-            <div id="risultato" class="hidden bg-slate-900 p-6 rounded-[2rem] text-white italic space-y-3 shadow-2xl animate-pulse-once">
+            <div id="risultato" class="hidden bg-slate-900 p-6 rounded-[2rem] text-white italic space-y-3 shadow-2xl">
                 <div class="flex justify-between text-[10px] uppercase opacity-60"><span>Sconto Composto</span> <span id="res-sconto-base"></span></div>
-                <div class="flex justify-between text-[10px] uppercase opacity-60"><span>Pezzi Totali</span> <span id="res-pz"></span></div>
+                <div class="flex justify-between text-[10px] uppercase opacity-60"><span>Pezzi Finali</span> <span id="res-pz"></span></div>
                 <div class="flex justify-between text-[10px] uppercase opacity-60"><span>Vincolo Logistico</span> <span id="res-vincolo"></span></div>
                 <div class="flex justify-between items-end pt-2 border-t border-white/10"><span class="text-xs font-black uppercase text-blue-400">TOTALE FINALE</span><span id="res-p" class="text-3xl font-black tracking-tighter"></span></div>
                 <p id="iva-note" class="text-[8px] uppercase text-center opacity-40 pt-2"></p>
@@ -105,7 +101,6 @@ async function renderInterfacciaCalcolo(cat, gamma) {
     lucide.createIcons();
 }
 
-// --- LOGICA DI CALCOLO COMMERCIALE ---
 function eseguiCalcoloCommerciale() {
     const p = JSON.parse(document.getElementById('select-prod').value);
     const mainQty = parseFloat(document.getElementById('q-main').value) || 0;
@@ -115,7 +110,6 @@ function eseguiCalcoloCommerciale() {
     const transport = parseFloat(document.getElementById('cost-trans').value) || 0;
     const isPrivato = document.getElementById('c-type').value === 'privato';
 
-    // Determina PZ/MQ per posa (solo Fortis)
     let pzMqEffettivo = p.pz_mq;
     let posaInfo = "";
     if (p.range === "Fortis") {
@@ -124,42 +118,39 @@ function eseguiCalcoloCommerciale() {
         posaInfo = (tipoPosa === "coltello") ? "Coltello | " : "Piatto | ";
     }
 
-    // Calcolo pezzi richiesti
     let pzRichiesti = (unitType === 'mq') ? Math.ceil((mainQty + extraQty) * pzMqEffettivo) : (mainQty + extraQty);
     let pzFinali = pzRichiesti;
     let vincoloMsg = "";
 
-    // REGOLE GAMMA
+    // REGOLE GAMMA AGGIORNATE
     if (p.range === "Genesis") {
         pzFinali = (p.sfuso === 'no') ? Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale : Math.ceil(pzRichiesti / p.pz_scatola) * p.pz_scatola;
         vincoloMsg = (p.sfuso === 'no') ? "Bancale Intero" : "Scatola Intera";
     } else if (p.range === "Futura") {
+        pzFinali = pzRichiesti; // VENDITA LIBERA
         vincoloMsg = "Vendita Libera";
     } else if (p.range === "Croma") {
         if (p.sfuso === 'no') { pzFinali = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale; vincoloMsg = "Bancale Intero"; }
         else { vincoloMsg = "Vendita Libera"; }
     } else if (p.range === "Fortis" || p.range === "Cotto") {
         pzFinali = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale;
-        vincoloMsg = "Sempre Bancale Intero";
+        vincoloMsg = "Bancale Intero";
     }
 
-    // Calcolo Sconti
     const baseDisc = (pzFinali >= p.pz_bancale) ? 50 : 45;
     const priceScontato = p.price * (1 - baseDisc / 100) * (1 - extraDisc / 100);
     const imponibile = (pzFinali * priceScontato) + transport;
-    const totale = isPrivato ? imponibile * 1.22 : imponibile; //
+    const totale = isPrivato ? imponibile * 1.22 : imponibile;
 
-    // Render Risultati
     const box = document.getElementById('risultato');
     box.classList.remove('hidden');
     document.getElementById('res-sconto-base').innerText = `${baseDisc}% + ${extraDisc}%`;
     document.getElementById('res-pz').innerText = pzFinali + " pz";
     document.getElementById('res-vincolo').innerText = posaInfo + vincoloMsg;
     document.getElementById('res-p').innerText = "€" + totale.toLocaleString('it-IT', {minimumFractionDigits: 2});
-    document.getElementById('iva-note').innerText = isPrivato ? "Include IVA 22% e Trasporto" : "Prezzo IVA esclusa, include Trasporto";
+    document.getElementById('iva-note').innerText = isPrivato ? "IVA 22% Incl." : "IVA Escl.";
 }
 
-// --- GESTIONE LISTINI ---
 function renderGestionale() {
     const c = document.getElementById('content');
     document.getElementById('back-btn').classList.add('hidden');
@@ -171,7 +162,7 @@ function renderGestionale() {
                 <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border">
                     <span class="font-bold text-[10px] uppercase text-slate-500">${g}</span>
                     <input type="file" id="f-${cat}-${g}" accept=".csv" class="hidden" onchange="importa('${cat}','${g}',event)">
-                    <label for="f-${cat}-${g}" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-black uppercase text-[9px] cursor-pointer active:scale-95 transition-transform">Carica CSV</label>
+                    <label for="f-${cat}-${g}" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-black uppercase text-[9px] cursor-pointer">Carica CSV</label>
                 </div>`).join('')}</div></div>`;
     }
     c.innerHTML = h + `</div>`;
@@ -189,14 +180,14 @@ async function importa(cat, gamma, e) {
             const c = line.split(/[,;]/); 
             if (i > 0 && c[2]) {
                 let item = { category: cat, range: gamma, name: c[2].trim(), price: parseFloat(c[3]?.replace(',', '.')) || 0 };
-                if (gamma === "Fortis") { // Mapping speciale Fortis
+                if (gamma === "Fortis") {
                     item.pz_mq_coltello = parseFloat(c[4]?.replace(',', '.')) || 0;
                     item.pz_mq_piatto = parseFloat(c[5]?.replace(',', '.')) || 0;
                     item.pz_bancale = parseInt(c[6]) || 1;
                     item.kg_bancale = parseFloat(c[7]?.replace(',', '.')) || 0;
                     item.sfuso = c[8] ? c[8].trim().toLowerCase() : 'no';
                     item.pz_mq = item.pz_mq_piatto;
-                } else { // Mapping Standard
+                } else {
                     item.pz_mq = parseFloat(c[4]?.replace(',', '.')) || 1;
                     item.pz_scatola = parseInt(c[5]) || 0;
                     item.pz_bancale = parseInt(c[6]) || 1;
@@ -207,7 +198,7 @@ async function importa(cat, gamma, e) {
             }
         });
         await db.prodotti.bulkAdd(batch);
-        alert(`Aggiornato listino ${gamma}`);
+        alert(`Aggiornato ${gamma}`);
         renderGestionale();
     };
     reader.readAsText(file);
