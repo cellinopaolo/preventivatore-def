@@ -14,13 +14,17 @@ async function init() { renderCategorie(); lucide.createIcons(); }
 function renderCategorie() {
     const c = document.getElementById('content');
     document.getElementById('back-btn').classList.add('hidden');
-    c.innerHTML = `<div class="grid gap-4 italic font-black text-xl uppercase tracking-tighter">
-        ${Object.keys(STRUTTURA).map(key => `
-            <button onclick="renderGamme('${key}')" class="${STRUTTURA[key].colore} p-8 rounded-[2rem] text-white flex items-center gap-6 shadow-lg active:scale-95 transition-all w-full">
-                <div class="bg-white/20 p-4 rounded-2xl"><i data-lucide="${STRUTTURA[key].icona}"></i></div>
-                <span>${key}</span>
-            </button>`).join('')}
-    </div>`;
+    c.innerHTML = `
+        <div class="grid gap-4 italic font-black text-xl uppercase tracking-tighter">
+            ${Object.keys(STRUTTURA).map(key => `
+                <button onclick="renderGamme('${key}')" class="${STRUTTURA[key].colore} p-8 rounded-[2rem] text-white flex items-center gap-6 shadow-lg active:scale-95 transition-all w-full">
+                    <div class="bg-white/20 p-4 rounded-2xl"><i data-lucide="${STRUTTURA[key].icona}"></i></div>
+                    <span>${key}</span>
+                </button>`).join('')}
+            <button onclick="renderGestionale()" class="bg-slate-800 p-6 rounded-[2rem] text-white flex items-center justify-center gap-4 mt-4 opacity-80 hover:opacity-100 transition-all">
+                <i data-lucide="database"></i> <span>Gestione Listini</span>
+            </button>
+        </div>`;
     lucide.createIcons();
 }
 
@@ -38,7 +42,7 @@ function renderGamme(cat) {
     lucide.createIcons();
 }
 
-// --- INTERFACCIA CALCOLO ---
+// --- INTERFACCIA CALCOLO (BLINDATA) ---
 async function renderInterfacciaCalcolo(cat, gamma) {
     const prodotti = await db.prodotti.where({ category: cat, range: gamma }).toArray();
     const c = document.getElementById('content');
@@ -84,7 +88,7 @@ function toggleSfrido(val) {
     else box.classList.add('hidden');
 }
 
-// --- LOGICA DI CALCOLO COMMERCIALE (BLINDATA) ---
+// --- LOGICA DI CALCOLO ---
 function eseguiCalcoloCommerciale() {
     const p = JSON.parse(document.getElementById('select-prod').value);
     let mainQtyInput = parseFloat(document.getElementById('q-main').value) || 0;
@@ -105,7 +109,6 @@ function eseguiCalcoloCommerciale() {
     let vincoloMsg = "";
     let baseDisc = 45;
 
-    // --- LOGICA SPECIFICA PER GAMMA ---
     if (p.range === "Pannelli preassemblati") {
         const mqRichiesti = qtyLavorazione + extraQty;
         const m2scat = parseFloat(p.m2_scatola) || 1;
@@ -125,16 +128,12 @@ function eseguiCalcoloCommerciale() {
         vincoloMsg = "Vendita Libera";
     } 
     else {
-        // MATTONI (Genesis, Futura, Croma, Fortis, Cotto)
         let pzMq = p.pz_mq;
         if (p.range === "Fortis") {
             pzMq = (document.getElementById('tipo-posa').value === "coltello") ? p.pz_mq_coltello : p.pz_mq_piatto;
         }
         let pzRichiesti = (unitType === 'mq') ? Math.ceil((qtyLavorazione + extraQty) * pzMq) : (qtyLavorazione + extraQty);
-        
-        qtyVenduta = pzRichiesti; 
-        vincoloMsg = "Vendita Libera";
-
+        qtyVenduta = pzRichiesti;
         if (p.range === "Genesis") {
             qtyVenduta = (p.sfuso === 'no') ? Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale : Math.ceil(pzRichiesti / p.pz_scatola) * p.pz_scatola;
             vincoloMsg = (p.sfuso === 'no') ? "Bancale Intero" : "Scatola Intera";
@@ -144,7 +143,7 @@ function eseguiCalcoloCommerciale() {
         } else if (p.range === "Fortis" || p.range === "Cotto") {
             qtyVenduta = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale;
             vincoloMsg = "Bancale Intero";
-        }
+        } else { vincoloMsg = "Vendita Libera"; }
         baseDisc = (qtyVenduta >= p.pz_bancale) ? 50 : 45;
     }
 
@@ -154,13 +153,33 @@ function eseguiCalcoloCommerciale() {
 
     document.getElementById('risultato').classList.remove('hidden');
     document.getElementById('res-sconto-base').innerText = `${baseDisc}% + ${extraDisc}%`;
-    document.getElementById('res-pz').innerText = qtyVenduta.toFixed(2) + (p.range.includes("Pietra") || p.range === "Pannelli preassemblati" ? " mq/ml" : " pz");
+    document.getElementById('res-pz').innerText = qtyVenduta.toFixed(2) + (p.category === "Pietra" ? " mq/ml" : " pz");
     document.getElementById('res-vincolo').innerText = vincoloMsg;
     document.getElementById('res-p').innerText = "€" + totale.toLocaleString('it-IT', {minimumFractionDigits: 2});
     document.getElementById('iva-note').innerText = isPrivato ? "Incl. IVA 22% e Trasp." : "Escl. IVA, Incl. Trasp.";
 }
 
-// --- GESTIONE LISTINI (IMPORTAZIONE) ---
+// --- GESTIONALE (TAB LISTINI) ---
+function renderGestionale() {
+    const c = document.getElementById('content');
+    const b = document.getElementById('back-btn');
+    b.classList.remove('hidden'); b.onclick = renderCategorie;
+    let h = `<h2 class="text-2xl font-black mb-6 uppercase italic">Gestione Listini</h2><div class="space-y-4 pb-24">`;
+    for (const [cat, info] of Object.entries(STRUTTURA)) {
+        h += `<div class="bg-white rounded-[2rem] border-2 border-slate-100 overflow-hidden shadow-sm">
+            <div class="${info.colore} p-4 text-white font-black uppercase italic text-[10px] tracking-widest">${cat}</div>
+            <div class="p-4 space-y-2">${info.gamme.map(g => `
+                <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border">
+                    <span class="font-bold text-[10px] uppercase text-slate-500">${g}</span>
+                    <input type="file" id="f-${cat}-${g}" accept=".csv" class="hidden" onchange="importa('${cat}','${g}',event)">
+                    <label for="f-${cat}-${g}" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-black uppercase text-[9px] cursor-pointer">Carica CSV</label>
+                </div>`).join('')}</div></div>`;
+    }
+    c.innerHTML = h + `</div>`;
+    lucide.createIcons();
+}
+
+// --- IMPORTAZIONE CSV ---
 async function importa(cat, gamma, e) {
     const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
@@ -168,34 +187,20 @@ async function importa(cat, gamma, e) {
         const text = event.target.result;
         const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
         const header = lines[0].split(/[,;]/).map(h => h.trim().toLowerCase());
-        
         const idx = {
             nome: header.indexOf("nome"),
             prezzo: header.indexOf("prezzo_m2") !== -1 ? header.indexOf("prezzo_m2") : (header.indexOf("prezzo_pz") !== -1 ? header.indexOf("prezzo_pz") : header.indexOf("prezzo_unita")),
-            m2_scat: header.indexOf("m2_scatola"),
-            m2_banc: header.indexOf("m2_bancale"),
-            pz_mq: header.indexOf("pz_m2"),
-            pz_ml: header.indexOf("pz_ml"),
-            pz_scat: header.indexOf("pz_scatola"),
-            pz_banc: header.indexOf("pz_bancale"),
-            sfuso: header.indexOf("sfuso"),
-            pz_mq_p: header.indexOf("pz_m2_piatto"),
-            pz_mq_c: header.indexOf("pz_m2_coltello")
+            m2_scat: header.indexOf("m2_scatola"), m2_banc: header.indexOf("m2_bancale"),
+            pz_mq: header.indexOf("pz_m2"), pz_ml: header.indexOf("pz_ml"),
+            pz_scat: header.indexOf("pz_scatola"), pz_banc: header.indexOf("pz_bancale"),
+            sfuso: header.indexOf("sfuso"), pz_mq_p: header.indexOf("pz_m2_piatto"), pz_mq_c: header.indexOf("pz_m2_coltello")
         };
-
         const batch = [];
         await db.prodotti.where({ category: cat, range: gamma }).delete();
-
         for(let i = 1; i < lines.length; i++) {
             const c = lines[i].split(/[,;]/).map(val => val.trim());
             if (!c[idx.nome]) continue;
-
-            let item = { 
-                category: cat, range: gamma, name: c[idx.nome], 
-                price: parseFloat(c[idx.prezzo]?.replace(',', '.')) || 0,
-                sfuso: idx.sfuso !== -1 ? c[idx.sfuso].toLowerCase() : 'no'
-            };
-
+            let item = { category: cat, range: gamma, name: c[idx.nome], price: parseFloat(c[idx.prezzo]?.replace(',', '.')) || 0, sfuso: idx.sfuso !== -1 ? c[idx.sfuso].toLowerCase() : 'no' };
             if (gamma === "Pannelli preassemblati" || gamma === "Posa incerta") {
                 item.m2_scatola = parseFloat(c[idx.m2_scat]?.replace(',', '.')) || 1;
                 item.m2_bancale = parseFloat(c[idx.m2_banc]?.replace(',', '.')) || 999;
