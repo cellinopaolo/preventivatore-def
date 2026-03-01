@@ -9,6 +9,7 @@ const ESTR = {
 
 function init() { renderCategorie(); lucide.createIcons(); }
 
+// --- NAVIGAZIONE ---
 function renderCategorie() {
     const c = document.getElementById('content');
     document.getElementById('page-title').innerText = "Catalogo";
@@ -48,6 +49,7 @@ function renderGamme(cat) {
     lucide.createIcons();
 }
 
+// --- PAGINA CALCOLO (CON TUTTE LE FUNZIONI RIPRISTINATE) ---
 async function renderCalcolo(cat, gamma) {
     const prodotti = await db.prodotti.where({ category: cat, range: gamma }).toArray();
     const c = document.getElementById('content');
@@ -55,7 +57,7 @@ async function renderCalcolo(cat, gamma) {
     document.getElementById('back-btn').onclick = () => renderGamme(cat);
 
     if (prodotti.length === 0) {
-        c.innerHTML = `<div class="p-12 text-center text-gray-400">Listino vuoto.<br><span class="text-xs">Carica un CSV in Impostazioni</span></div>`;
+        c.innerHTML = `<div class="p-12 text-center text-gray-400">Listino vuoto.<br><span class="text-xs">Usa la scheda Listini per caricare il CSV</span></div>`;
         return;
     }
 
@@ -67,8 +69,8 @@ async function renderCalcolo(cat, gamma) {
             </div>
             ${gamma === 'Fortis' ? `
             <div class="ios-row">
-                <span class="ios-label">Tipo di Posa</span>
-                <select id="tipo-posa"><option value="piatto">Piatto</option><option value="coltello">Coltello</option></select>
+                <span class="ios-label">Posa</span>
+                <select id="tipo-posa"><option value="piatto">Di Piatto</option><option value="coltello">Di Coltello</option></select>
             </div>` : ''}
             ${gamma === 'Posa incerta' ? `
             <div class="ios-row">
@@ -86,7 +88,7 @@ async function renderCalcolo(cat, gamma) {
         <div class="ios-group">
             <div class="ios-row">
                 <span class="ios-label">Quantità</span>
-                <input type="number" id="q-main" placeholder="Obbligatorio">
+                <input type="number" id="q-main" placeholder="Inserisci">
             </div>
             <div class="ios-row">
                 <span class="ios-label">Unità</span>
@@ -94,6 +96,10 @@ async function renderCalcolo(cat, gamma) {
                     <option value="mq">MQ</option>
                     <option value="pz">Pezzi</option>
                 </select>
+            </div>
+            <div class="ios-row">
+                <span class="ios-label text-gray-400">Extra (Pz/Mq)</span>
+                <input type="number" id="q-extra" value="0">
             </div>
         </div>
 
@@ -115,75 +121,86 @@ async function renderCalcolo(cat, gamma) {
             </div>
         </div>
 
-        <button onclick="calcola()" class="btn-primary">Calcola Preventivo</button>
+        <button onclick="calcola()" class="btn-primary">Calcola Totale</button>
 
         <div id="risultato" class="hidden mt-8 px-4">
             <div class="ios-group !mx-0">
-                <div class="ios-row"><span class="ios-label opacity-50">Sconto Base</span><span id="res-sconto" class="font-semibold"></span></div>
-                <div class="ios-row"><span class="ios-label opacity-50">Qtà Finale</span><span id="res-qty" class="font-semibold text-blue-600"></span></div>
-                <div class="ios-row"><span class="ios-label opacity-50">Vincolo</span><span id="res-vincolo" class="italic text-gray-400"></span></div>
+                <div class="ios-row"><span class="ios-label opacity-50">Sconto Applicato</span><span id="res-sconto" class="font-semibold"></span></div>
+                <div class="ios-row"><span class="ios-label opacity-50">Quantità Venduta</span><span id="res-qty" class="font-semibold text-blue-600"></span></div>
+                <div class="ios-row"><span class="ios-label opacity-50">Vincolo Logistico</span><span id="res-vincolo" class="italic text-gray-400"></span></div>
             </div>
             <div class="text-center py-4">
-                <span class="text-xs uppercase font-bold tracking-widest text-gray-400">Totale Finale</span>
+                <span class="text-xs uppercase font-bold tracking-widest text-gray-400">Prezzo Finale</span>
                 <div id="res-prezzo" class="text-5xl font-extrabold tracking-tighter mt-1"></div>
             </div>
         </div>`;
     lucide.createIcons();
 }
 
+// --- LOGICA DI CALCOLO RIPRISTINATA ---
 function calcola() {
     const p = JSON.parse(document.getElementById('select-prod').value);
-    let mainQty = parseFloat(document.getElementById('q-main').value) || 0;
+    let qBase = parseFloat(document.getElementById('q-main').value) || 0;
+    const qExtra = parseFloat(document.getElementById('q-extra').value) || 0;
     const unit = document.getElementById('u-type').value;
     const extraDisc = parseFloat(document.getElementById('d-extra').value) || 0;
     const transport = parseFloat(document.getElementById('cost-trans').value) || 0;
     const isPrivato = document.getElementById('c-type').value === 'privato';
 
+    // Sfrido Pietra
     if (p.range === "Posa incerta" && document.getElementById('finitura-pietra')?.value === 'secco') {
         const perc = parseFloat(document.getElementById('perc-sfrido').value) || 15;
-        mainQty = mainQty * (1 + perc / 100);
+        qBase = qBase * (1 + perc / 100);
     }
 
-    let qtyVenduta = mainQty;
-    let vincolo = "Libera";
+    let qtyVenduta = qBase + qExtra;
+    let vincolo = "Vendita Libera";
     let baseDisc = 45;
     let label = (p.category === "Mattoni") ? " pz" : " m²";
 
+    // 1. LEGNO
     if (p.category === "Legno") {
         if (p.range === "Rivestimenti") {
-            qtyVenduta = mainQty * (146/136);
+            qtyVenduta = (qBase + qExtra) * (146/136);
             label = " m² Nom.";
-            vincolo = "Conv. Nominale";
+            vincolo = "Sup. Nominale";
         }
         baseDisc = qtyVenduta >= 15 ? 50 : 45;
-    } else if (p.category === "Mattoni") {
+    } 
+    // 2. MATTONI
+    else if (p.category === "Mattoni") {
         let pzMq = p.pz_mq;
         if (p.range === "Fortis") pzMq = document.getElementById('tipo-posa').value === 'coltello' ? p.pz_mq_coltello : p.pz_mq_piatto;
-        qtyVenduta = (unit === 'mq') ? Math.ceil(mainQty * pzMq) : mainQty;
-        label = " pz";
-
+        
+        let pzRichiesti = (unit === 'mq') ? Math.ceil(qtyVenduta * pzMq) : qtyVenduta;
+        
         if (p.range === "Genesis") {
-            qtyVenduta = (p.sfuso === 'no') ? Math.ceil(qtyVenduta / p.pz_bancale) * p.pz_bancale : Math.ceil(qtyVenduta / p.pz_scatola) * p.pz_scatola;
-            vincolo = (p.sfuso === 'no') ? "Bancale" : "Scatola";
+            qtyVenduta = (p.sfuso === 'no') ? Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale : Math.ceil(pzRichiesti / p.pz_scatola) * p.pz_scatola;
+            vincolo = (p.sfuso === 'no') ? "Bancale Intero" : "Scatola Intera";
         } else if (["Croma", "Fortis", "Cotto"].includes(p.range)) {
-            qtyVenduta = Math.ceil(qtyVenduta / p.pz_bancale) * p.pz_bancale;
+            qtyVenduta = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale;
             vincolo = "Bancale Intero";
+        } else {
+            qtyVenduta = pzRichiesti;
         }
+        label = " pz";
         baseDisc = qtyVenduta >= (p.pz_bancale || 999) ? 50 : 45;
-    } else {
+    } 
+    // 3. PIETRA ALTRA
+    else {
         if (p.range === "Pannelli preassemblati") {
-            qtyVenduta = Math.ceil(mainQty / (p.m2_scatola || 1)) * (p.m2_scatola || 1);
-            vincolo = "Scatola";
+            qtyVenduta = Math.ceil(qtyVenduta / (p.m2_scatola || 1)) * (p.m2_scatola || 1);
+            vincolo = "Scatola Intera";
         } else if (p.range === "Pavimenti" && p.sfuso === 'no') {
-            qtyVenduta = Math.ceil(mainQty / (p.m2_bancale || 1)) * (p.m2_bancale || 1);
-            vincolo = "Bancale";
+            qtyVenduta = Math.ceil(qtyVenduta / (p.m2_bancale || 1)) * (p.m2_bancale || 1);
+            vincolo = "Bancale Intero";
         }
         baseDisc = qtyVenduta >= (p.m2_bancale || 999) ? 50 : 45;
     }
 
     const priceScontato = p.price * (1 - baseDisc/100) * (1 - extraDisc/100);
-    const tot = (qtyVenduta * priceScontato) + transport;
-    const finale = isPrivato ? tot * 1.22 : tot;
+    const totImponibile = (qtyVenduta * priceScontato) + transport;
+    const finale = isPrivato ? totImponibile * 1.22 : totImponibile;
 
     document.getElementById('risultato').classList.remove('hidden');
     document.getElementById('res-sconto').innerText = `${baseDisc}% + ${extraDisc}%`;
@@ -192,24 +209,30 @@ function calcola() {
     document.getElementById('res-prezzo').innerText = `€ ${finale.toLocaleString('it-IT', {minimumFractionDigits: 2})}`;
 }
 
+// --- SEZIONE LISTINI (RIPRISTINATA COMPLETA) ---
 function renderGestionale() {
     const c = document.getElementById('content');
     document.getElementById('page-title').innerText = "Listini";
     document.getElementById('back-btn').classList.add('hidden');
+    
     let h = "";
     for (const [cat, info] of Object.entries(ESTR)) {
-        h += `<h3 class="ml-4 mb-2 mt-4 text-[11px] font-bold text-gray-500 uppercase">${cat}</h3>
-        <div class="ios-group">${info.gamme.map(g => `
-            <div class="ios-row">
-                <span class="ios-label">${g}</span>
-                <input type="file" id="f-${cat}-${g}" accept=".csv" class="hidden" onchange="importa('${cat}','${g}',event)">
-                <label for="f-${cat}-${g}" class="text-blue-600 font-bold text-xs cursor-pointer">CARICA CSV</label>
-            </div>`).join('')}</div>`;
+        h += `<h3 class="ml-4 mb-2 mt-6 text-[11px] font-bold text-gray-500 uppercase tracking-widest">${cat}</h3>
+        <div class="ios-group">
+            ${info.gamme.map(g => `
+                <div class="ios-row">
+                    <span class="ios-label">${g}</span>
+                    <input type="file" id="f-${cat}-${g}" accept=".csv" class="hidden" onchange="importa('${cat}','${g}',event)">
+                    <label for="f-${cat}-${g}" class="text-blue-600 font-bold text-xs cursor-pointer active:opacity-50">CARICA CSV</label>
+                </div>
+            `).join('')}
+        </div>`;
     }
     c.innerHTML = h;
     lucide.createIcons();
 }
 
+// --- FUNZIONE IMPORTA (CONGELATA) ---
 async function importa(cat, gamma, e) {
     const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
@@ -242,7 +265,7 @@ async function importa(cat, gamma, e) {
             batch.push(item);
         }
         await db.prodotti.bulkAdd(batch);
-        alert(`Aggiornato: ${gamma}`);
+        alert(`Listino ${gamma} aggiornato con successo!`);
     };
     reader.readAsText(file);
 }
