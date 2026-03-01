@@ -10,34 +10,38 @@
     <style>
         body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: contain; }
         .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+        input[type="number"]::-webkit-inner-spin-button { display: none; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 font-sans">
+<body class="bg-slate-50 text-slate-900 font-sans select-none">
     <div id="app" class="max-w-md mx-auto min-h-screen flex flex-col">
-        <header class="bg-white p-4 shadow-sm sticky top-0 z-30 flex justify-between items-center">
-            <h1 class="text-xl font-black tracking-tighter">PREVENTIVI <span class="text-blue-600">PRO</span></h1>
-            <div id="back-btn" class="hidden p-2 bg-slate-100 rounded-full cursor-pointer"><i data-lucide="arrow-left"></i></div>
+        <header class="bg-white p-4 shadow-sm sticky top-0 z-30 flex justify-between items-center border-b">
+            <h1 class="text-xl font-black tracking-tighter italic uppercase">PREVENTIVI <span class="text-blue-600">PRO</span></h1>
+            <div id="back-btn" class="hidden p-2 bg-slate-100 rounded-full cursor-pointer hover:bg-slate-200 transition-colors">
+                <i data-lucide="arrow-left"></i>
+            </div>
         </header>
 
         <main id="content" class="p-4 flex-grow pb-32"></main>
 
-        <nav class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex justify-around items-center max-w-md mx-auto z-40 safe-area-bottom">
-            <button onclick="renderCategorie()" class="flex flex-col items-center text-blue-600">
+        <nav class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex justify-around items-center max-w-md mx-auto z-40 safe-area-bottom shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+            <button onclick="renderCategorie()" class="flex flex-col items-center text-blue-600 active:scale-90 transition-transform">
                 <i data-lucide="layout-grid"></i>
-                <span class="text-[10px] font-bold uppercase mt-1">Home</span>
+                <span class="text-[10px] font-bold uppercase mt-1">Catalogo</span>
             </button>
-            <button onclick="renderGestionale()" class="flex flex-col items-center text-slate-400">
+            <button onclick="renderGestionale()" class="flex flex-col items-center text-slate-400 active:scale-90 transition-transform">
                 <i data-lucide="database"></i>
-                <span class="text-[10px] font-bold uppercase mt-1">Gestione</span>
+                <span class="text-[10px] font-bold uppercase mt-1">Listini</span>
             </button>
         </nav>
     </div>
 
-    <div id="modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4">
-        <div class="bg-white w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl">
+    <div id="modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-end justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl animate-in slide-in-from-bottom duration-300">
             <div id="modal-content"></div>
         </div>
     </div>
+
     <script src="app.js"></script>
 </body>
 </html>
