@@ -49,72 +49,23 @@ async function renderInterfacciaCalcolo(cat, gamma) {
         return;
     }
 
-    // Gestione selettori speciali per gamma
     let htmlSpecial = "";
     if (gamma === "Fortis") {
-        htmlSpecial = `
-            <div class="space-y-2">
-                <label class="text-[9px] font-black uppercase text-slate-400 ml-4 italic">Tipo di Posa</label>
-                <select id="tipo-posa" class="w-full bg-orange-50 p-4 rounded-2xl font-black italic outline-none border-2 border-orange-100 focus:border-orange-500 appearance-none">
-                    <option value="piatto">DI PIATTO (Standard)</option>
-                    <option value="coltello">DI COLTELLO</option>
-                </select>
-            </div>`;
+        htmlSpecial = `<div class="space-y-2"><label class="text-[9px] font-black uppercase text-slate-400 ml-4 italic">Tipo di Posa</label><select id="tipo-posa" class="w-full bg-orange-50 p-4 rounded-2xl font-black italic outline-none border-2 border-orange-100 focus:border-orange-500 appearance-none"><option value="piatto">DI PIATTO (Standard)</option><option value="coltello">DI COLTELLO</option></select></div>`;
     } else if (gamma === "Posa incerta") {
-        htmlSpecial = `
-            <div class="grid grid-cols-2 gap-3">
-                <div class="space-y-2">
-                    <label class="text-[9px] font-black uppercase text-slate-400 ml-4 italic">Finitura Posa</label>
-                    <select id="finitura-pietra" onchange="toggleSfrido(this.value)" class="w-full bg-stone-100 p-4 rounded-2xl font-black italic outline-none border-2 border-transparent focus:border-stone-500 appearance-none">
-                        <option value="fugata">FUGATA</option>
-                        <option value="secco">A SECCO</option>
-                    </select>
-                </div>
-                <div id="box-sfrido" class="space-y-2 hidden">
-                    <label class="text-[9px] font-black uppercase text-orange-500 ml-4 italic">+ % Materiale</label>
-                    <input type="number" id="perc-sfrido" class="w-full bg-orange-50 p-4 rounded-2xl font-black italic outline-none border-2 border-orange-200 focus:border-orange-500 text-center" value="15">
-                </div>
-            </div>`;
+        htmlSpecial = `<div class="grid grid-cols-2 gap-3"><div class="space-y-2"><label class="text-[9px] font-black uppercase text-slate-400 ml-4 italic">Finitura Posa</label><select id="finitura-pietra" onchange="toggleSfrido(this.value)" class="w-full bg-stone-100 p-4 rounded-2xl font-black italic outline-none border-2 border-transparent focus:border-stone-500 appearance-none"><option value="fugata">FUGATA</option><option value="secco">A SECCO</option></select></div><div id="box-sfrido" class="space-y-2 hidden"><label class="text-[9px] font-black uppercase text-orange-500 ml-4 italic">+ % Materiale</label><input type="number" id="perc-sfrido" class="w-full bg-orange-50 p-4 rounded-2xl font-black italic outline-none border-2 border-orange-200 focus:border-orange-500 text-center" value="15"></div></div>`;
     }
 
-    const unitOptions = gamma === "Posa incerta" ? 
-        `<option value="auto">AUTO (M2/ML)</option><option value="pz">PEZZI</option>` :
-        `<option value="mq">MQ</option><option value="pz">PEZZI</option>`;
+    const unitOptions = gamma === "Posa incerta" ? `<option value="auto">AUTO (M2/ML)</option><option value="pz">PEZZI</option>` : `<option value="mq">MQ</option><option value="pz">PEZZI</option>`;
 
     c.innerHTML = `
         <div class="mb-4 italic"><p class="text-[10px] font-black text-blue-600 uppercase">${cat} / ${gamma}</p></div>
         <div class="bg-white p-5 rounded-[2.5rem] border shadow-sm space-y-5">
-            <div>
-                <label class="text-[9px] font-black uppercase text-slate-400 ml-4 italic">Modello</label>
-                <select id="select-prod" class="w-full bg-slate-100 p-4 rounded-2xl font-bold italic outline-none border-2 border-transparent focus:border-blue-500">
-                    ${prodotti.map(p => `<option value='${JSON.stringify(p)}'>${p.name}</option>`).join('')}
-                </select>
-            </div>
+            <div><label class="text-[9px] font-black uppercase text-slate-400 ml-4 italic">Modello</label><select id="select-prod" class="w-full bg-slate-100 p-4 rounded-2xl font-bold italic outline-none border-2 border-transparent focus:border-blue-500">${prodotti.map(p => `<option value='${JSON.stringify(p)}'>${p.name}</option>`).join('')}</select></div>
             ${htmlSpecial}
-            <div class="grid grid-cols-2 gap-3">
-                <div class="relative">
-                    <input type="number" id="q-main" class="w-full bg-slate-50 rounded-2xl p-4 text-2xl font-black text-center border focus:border-blue-500 outline-none italic" value="0">
-                    <label class="absolute -top-2 left-4 bg-slate-800 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase italic">Quantità</label>
-                </div>
-                <select id="u-type" class="w-full bg-slate-100 p-4 rounded-2xl font-black italic outline-none text-sm">${unitOptions}</select>
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div class="relative">
-                    <input type="number" id="q-extra" class="w-full bg-slate-50 rounded-2xl p-4 text-xl font-black text-center border outline-none italic" value="0">
-                    <label class="absolute -top-2 left-4 bg-blue-600 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase italic">Extra</label>
-                </div>
-                <div class="relative">
-                    <input type="number" id="d-extra" class="w-full bg-slate-50 rounded-2xl p-4 text-xl font-black text-center border outline-none italic" value="0">
-                    <label class="absolute -top-2 left-4 bg-orange-500 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase italic">Sconto Extra %</label>
-                </div>
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div class="relative">
-                    <input type="number" id="cost-trans" class="w-full bg-slate-50 rounded-2xl p-4 text-xl font-black text-center border outline-none italic" value="0">
-                    <label class="absolute -top-2 left-4 bg-slate-500 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase italic">Trasporto €</label>
-                </div>
-                <select id="c-type" class="w-full bg-slate-100 p-4 rounded-2xl font-black italic outline-none text-[10px] uppercase"><option value="azienda">Azienda</option><option value="privato">Privato</option></select>
-            </div>
+            <div class="grid grid-cols-2 gap-3"><div class="relative"><input type="number" id="q-main" class="w-full bg-slate-50 rounded-2xl p-4 text-2xl font-black text-center border focus:border-blue-500 outline-none italic" value="0"><label class="absolute -top-2 left-4 bg-slate-800 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase italic">Quantità</label></div><select id="u-type" class="w-full bg-slate-100 p-4 rounded-2xl font-black italic outline-none text-sm">${unitOptions}</select></div>
+            <div class="grid grid-cols-2 gap-3"><div class="relative"><input type="number" id="q-extra" class="w-full bg-slate-50 rounded-2xl p-4 text-xl font-black text-center border outline-none italic" value="0"><label class="absolute -top-2 left-4 bg-blue-600 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase italic">Extra</label></div><div class="relative"><input type="number" id="d-extra" class="w-full bg-slate-50 rounded-2xl p-4 text-xl font-black text-center border outline-none italic" value="0"><label class="absolute -top-2 left-4 bg-orange-500 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase italic">Sconto Extra %</label></div></div>
+            <div class="grid grid-cols-2 gap-3"><div class="relative"><input type="number" id="cost-trans" class="w-full bg-slate-50 rounded-2xl p-4 text-xl font-black text-center border outline-none italic" value="0"><label class="absolute -top-2 left-4 bg-slate-500 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase italic">Trasporto €</label></div><select id="c-type" class="w-full bg-slate-100 p-4 rounded-2xl font-black italic outline-none text-[10px] uppercase"><option value="azienda">Azienda</option><option value="privato">Privato</option></select></div>
             <button onclick="eseguiCalcoloCommerciale()" class="w-full bg-blue-600 text-white py-5 rounded-[2rem] font-black uppercase italic shadow-xl active:scale-95 transition-all">Calcola Totale</button>
             <div id="risultato" class="hidden bg-slate-900 p-6 rounded-[2rem] text-white italic space-y-3 shadow-2xl">
                 <div class="flex justify-between text-[10px] uppercase opacity-60"><span>Sconto Composto</span> <span id="res-sconto-base"></span></div>
@@ -127,7 +78,6 @@ async function renderInterfacciaCalcolo(cat, gamma) {
     lucide.createIcons();
 }
 
-// Helper per mostrare/nascondere lo sfrido
 function toggleSfrido(val) {
     const box = document.getElementById('box-sfrido');
     if (val === 'secco') box.classList.remove('hidden');
@@ -137,19 +87,21 @@ function toggleSfrido(val) {
 // --- LOGICA DI CALCOLO COMMERCIALE ---
 function eseguiCalcoloCommerciale() {
     const p = JSON.parse(document.getElementById('select-prod').value);
-    let mainQty = parseFloat(document.getElementById('q-main').value) || 0;
+    let mainQtyInput = parseFloat(document.getElementById('q-main').value) || 0;
     const extraQty = parseFloat(document.getElementById('q-extra').value) || 0;
     const unitType = document.getElementById('u-type').value;
     const extraDisc = parseFloat(document.getElementById('d-extra').value) || 0;
     const transport = parseFloat(document.getElementById('cost-trans').value) || 0;
     const isPrivato = document.getElementById('c-type').value === 'privato';
+    const isAngolare = p.name.includes("Angolare");
 
-    // Gestione Sfrido per Posa a Secco
+    // Applicazione Sfrido per Posa a Secco
+    let qtyConSfrido = mainQtyInput;
     if (p.range === "Posa incerta") {
         const finitura = document.getElementById('finitura-pietra').value;
         if (finitura === 'secco') {
             const percSfrido = parseFloat(document.getElementById('perc-sfrido').value) || 0;
-            mainQty = mainQty * (1 + percSfrido / 100);
+            qtyConSfrido = mainQtyInput * (1 + percSfrido / 100);
         }
     }
 
@@ -159,54 +111,45 @@ function eseguiCalcoloCommerciale() {
         pzMqEffettivo = (tipoPosa === "coltello") ? p.pz_mq_coltello : p.pz_mq_piatto;
     }
 
+    // Calcolo Pezzi Richiesti
     let pzRichiesti;
     if (p.range === "Posa incerta") {
-        const isAngolare = p.name.includes("Angolare");
         if (unitType === 'auto') {
             const factor = isAngolare ? (p.pz_ml || 1) : (p.pz_mq || 1);
-            pzRichiesti = Math.ceil((mainQty + extraQty) * factor);
+            pzRichiesti = Math.ceil((qtyConSfrido + extraQty) * factor);
         } else {
-            pzRichiesti = (mainQty + extraQty);
+            pzRichiesti = (qtyConSfrido + extraQty);
         }
     } else {
-        pzRichiesti = (unitType === 'mq') ? Math.ceil((mainQty + extraQty) * pzMqEffettivo) : (mainQty + extraQty);
+        pzRichiesti = (unitType === 'mq') ? Math.ceil((qtyConSfrido + extraQty) * pzMqEffettivo) : (qtyConSfrido + extraQty);
     }
 
     let pzFinali = pzRichiesti;
     let vincoloMsg = "";
     const sfusoVal = (p.sfuso || "").toString().trim().toLowerCase();
 
-    // APPLICAZIONE REGOLE PER GAMMA
+    // Logica Arrotondamento (Gamme Blindate)
     if (p.range === "Posa incerta") {
-        pzFinali = pzRichiesti;
-        vincoloMsg = "Vendita Libera";
+        pzFinali = pzRichiesti; vincoloMsg = "Vendita Libera";
     } else if (p.range === "Croma") {
-        if (sfusoVal === 'no') {
-            pzFinali = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale;
-            vincoloMsg = "Bancale Intero (Sfuso NO)";
-        } else {
-            pzFinali = pzRichiesti;
-            vincoloMsg = "Vendita Libera (Sfuso SÌ)";
-        }
+        if (sfusoVal === 'no') { pzFinali = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale; vincoloMsg = "Bancale Intero"; }
+        else { pzFinali = pzRichiesti; vincoloMsg = "Vendita Libera"; }
     } else if (p.range === "Genesis") {
         pzFinali = (sfusoVal === 'no') ? Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale : Math.ceil(pzRichiesti / p.pz_scatola) * p.pz_scatola;
         vincoloMsg = (sfusoVal === 'no') ? "Bancale Intero" : "Scatola Intera";
     } else if (p.range === "Futura") {
-        pzFinali = pzRichiesti;
-        vincoloMsg = "Vendita Libera";
+        pzFinali = pzRichiesti; vincoloMsg = "Vendita Libera";
     } else if (p.range === "Fortis" || p.range === "Cotto") {
-        pzFinali = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale;
-        vincoloMsg = "Bancale Intero";
+        pzFinali = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale; vincoloMsg = "Bancale Intero";
     }
 
-    // LOGICA SCONTI SPECIFICA PIETRA
+    // Logica Sconti
     let baseDisc = 45;
     if (p.range === "Posa incerta") {
-        const isAngolare = p.name.includes("Angolare");
         if (isAngolare) {
             baseDisc = (pzFinali >= p.pz_bancale) ? 50 : 45;
         } else {
-            const mqEffettivi = (unitType === 'auto') ? (mainQty + extraQty) : (pzFinali / (p.pz_mq || 1));
+            const mqEffettivi = (unitType === 'auto') ? (qtyConSfrido + extraQty) : (pzFinali / (p.pz_mq || 1));
             baseDisc = (mqEffettivi >= (p.m2_bancale || 9999)) ? 50 : 45;
         }
     } else {
@@ -214,7 +157,18 @@ function eseguiCalcoloCommerciale() {
     }
 
     const priceScontato = p.price * (1 - baseDisc / 100) * (1 - extraDisc / 100);
-    const imponibile = (pzFinali * priceScontato) + transport;
+    
+    // --- CALCOLO IMPONIBILE FINALE ---
+    let imponibile;
+    if (p.range === "Posa incerta" && !isAngolare) {
+        // Per la pietra piana: Prezzo Scontato * MQ Effettivi (con sfrido)
+        const mqFinaliPerCalcolo = (unitType === 'auto') ? (qtyConSfrido + extraQty) : (pzFinali / (p.pz_mq || 1));
+        imponibile = (mqFinaliPerCalcolo * priceScontato) + transport;
+    } else {
+        // Per Angolari e Mattoni: Prezzo Scontato * Numero di Pezzi
+        imponibile = (pzFinali * priceScontato) + transport;
+    }
+
     const totale = isPrivato ? imponibile * 1.22 : imponibile;
 
     document.getElementById('risultato').classList.remove('hidden');
@@ -251,34 +205,12 @@ async function importa(cat, gamma, e) {
         const text = event.target.result;
         const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
         const header = lines[0].split(/[,;]/).map(h => h.trim().toLowerCase());
-        
-        const idx = {
-            nome: header.indexOf("nome"),
-            prezzo: header.indexOf("prezzo_pz") !== -1 ? header.indexOf("prezzo_pz") : header.indexOf("prezzo_unita"),
-            pz_mq: header.indexOf("pz_m2"),
-            pz_ml: header.indexOf("pz_ml"),
-            m2_bancale: header.indexOf("m2_bancale"),
-            pz_mq_p: header.indexOf("pz_m2_piatto"),
-            pz_mq_c: header.indexOf("pz_m2_coltello"),
-            pz_scatola: header.indexOf("pz_scatola"),
-            pz_bancale: header.indexOf("pz_bancale"),
-            kg_bancale: header.indexOf("kg_bancale"),
-            sfuso: header.indexOf("sfuso")
-        };
-
-        const batch = [];
-        await db.prodotti.where({ category: cat, range: gamma }).delete();
-
+        const idx = { nome: header.indexOf("nome"), prezzo: header.indexOf("prezzo_pz") !== -1 ? header.indexOf("prezzo_pz") : header.indexOf("prezzo_unita"), pz_mq: header.indexOf("pz_m2"), pz_ml: header.indexOf("pz_ml"), m2_bancale: header.indexOf("m2_bancale"), pz_mq_p: header.indexOf("pz_m2_piatto"), pz_mq_c: header.indexOf("pz_m2_coltello"), pz_scatola: header.indexOf("pz_scatola"), pz_bancale: header.indexOf("pz_bancale"), kg_bancale: header.indexOf("kg_bancale"), sfuso: header.indexOf("sfuso") };
+        const batch = []; await db.prodotti.where({ category: cat, range: gamma }).delete();
         for(let i = 1; i < lines.length; i++) {
             const c = lines[i].split(/[,;]/).map(val => val.trim());
             if (!c[idx.nome]) continue;
-
-            let item = { 
-                category: cat, range: gamma, name: c[idx.nome], 
-                price: parseFloat(c[idx.prezzo]?.replace(',', '.')) || 0,
-                sfuso: idx.sfuso !== -1 ? c[idx.sfuso].toLowerCase() : 'no'
-            };
-
+            let item = { category: cat, range: gamma, name: c[idx.nome], price: parseFloat(c[idx.prezzo]?.replace(',', '.')) || 0, sfuso: idx.sfuso !== -1 ? c[idx.sfuso].toLowerCase() : 'no' };
             if (gamma === "Fortis") {
                 item.pz_mq_piatto = parseFloat(c[idx.pz_mq_p]?.replace(',', '.')) || 0;
                 item.pz_mq_coltello = parseFloat(c[idx.pz_mq_c]?.replace(',', '.')) || 0;
@@ -303,8 +235,7 @@ async function importa(cat, gamma, e) {
             batch.push(item);
         }
         await db.prodotti.bulkAdd(batch);
-        alert(`SUCCESSO: Listino ${gamma} caricato!`);
-        renderGestionale();
+        alert(`SUCCESSO: Listino ${gamma} caricato!`); renderGestionale();
     };
     reader.readAsText(file);
 }
