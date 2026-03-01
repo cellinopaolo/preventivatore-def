@@ -14,7 +14,6 @@ async function init() { renderCategorie(); lucide.createIcons(); }
 function renderCategorie() {
     const c = document.getElementById('content');
     document.getElementById('back-btn').classList.add('hidden');
-    // Rimosso il bottone duplicato "Gestione Listini" dal centro
     c.innerHTML = `
         <div class="grid gap-4 italic font-black text-xl uppercase tracking-tighter">
             ${Object.keys(STRUTTURA).map(key => `
@@ -40,7 +39,7 @@ function renderGamme(cat) {
     lucide.createIcons();
 }
 
-// --- INTERFACCIA CALCOLO (CONGELATA PER: MATTONI, POSA INCERTA, PANNELLI) ---
+// --- INTERFACCIA CALCOLO (CONGELATA) ---
 async function renderInterfacciaCalcolo(cat, gamma) {
     const prodotti = await db.prodotti.where({ category: cat, range: gamma }).toArray();
     const c = document.getElementById('content');
@@ -58,7 +57,8 @@ async function renderInterfacciaCalcolo(cat, gamma) {
         htmlSpecial = `<div class="grid grid-cols-2 gap-3"><div class="space-y-2"><label class="text-[9px] font-black uppercase text-slate-400 ml-4 italic">Finitura Posa</label><select id="finitura-pietra" onchange="toggleSfrido(this.value)" class="w-full bg-stone-100 p-4 rounded-2xl font-black italic outline-none border-2 border-transparent focus:border-stone-500 appearance-none"><option value="fugata">FUGATA</option><option value="secco">A SECCO</option></select></div><div id="box-sfrido" class="space-y-2 hidden"><label class="text-[9px] font-black uppercase text-orange-500 ml-4 italic">+ % Materiale</label><input type="number" id="perc-sfrido" class="w-full bg-orange-50 p-4 rounded-2xl font-black italic outline-none border-2 border-orange-200 focus:border-orange-500 text-center" value="15"></div></div>`;
     }
 
-    const unitOptions = (gamma === "Posa incerta" || gamma === "Pannelli preassemblati") ? `<option value="auto">AUTO (M2/ML)</option><option value="pz">PEZZI</option>` : `<option value="mq">MQ</option><option value="pz">PEZZI</option>`;
+    const isPietra = cat === "Pietra";
+    const unitOptions = isPietra ? `<option value="mq">MQ</option><option value="pz">PEZZI</option>` : `<option value="mq">MQ</option><option value="pz">PEZZI</option>`;
 
     c.innerHTML = `
         <div class="mb-4 italic"><p class="text-[10px] font-black text-blue-600 uppercase">${cat} / ${gamma}</p></div>
@@ -95,7 +95,6 @@ function eseguiCalcoloCommerciale() {
     const extraDisc = parseFloat(document.getElementById('d-extra').value) || 0;
     const transport = parseFloat(document.getElementById('cost-trans').value) || 0;
     const isPrivato = document.getElementById('c-type').value === 'privato';
-    const isAngolare = p.name.includes("Angolare");
 
     let qtyLavorazione = mainQtyInput;
     if (p.range === "Posa incerta" && document.getElementById('finitura-pietra').value === 'secco') {
@@ -114,18 +113,13 @@ function eseguiCalcoloCommerciale() {
         vincoloMsg = "Arrotondamento Scatola";
         baseDisc = (qtyVenduta >= (parseFloat(p.m2_bancale) || 999)) ? 50 : 45;
     } 
-    else if (p.range === "Posa incerta") {
-        const totalQty = qtyLavorazione + extraQty;
-        if (isAngolare) {
-            qtyVenduta = (unitType === 'auto') ? Math.ceil(totalQty * (p.pz_ml || 1)) : totalQty;
-            baseDisc = (qtyVenduta >= (p.pz_bancale || 999)) ? 50 : 45;
-        } else {
-            qtyVenduta = totalQty;
-            baseDisc = (qtyVenduta >= (parseFloat(p.m2_bancale) || 999)) ? 50 : 45;
-        }
+    else if (p.range === "Posa incerta" || p.range === "Taglio rettangolare") {
+        qtyVenduta = qtyLavorazione + extraQty;
         vincoloMsg = "Vendita Libera";
+        baseDisc = (qtyVenduta >= (parseFloat(p.m2_bancale) || 999)) ? 50 : 45;
     } 
     else {
+        // MATTONI
         let pzMq = p.pz_mq;
         if (p.range === "Fortis") {
             pzMq = (document.getElementById('tipo-posa').value === "coltello") ? p.pz_mq_coltello : p.pz_mq_piatto;
@@ -151,13 +145,13 @@ function eseguiCalcoloCommerciale() {
 
     document.getElementById('risultato').classList.remove('hidden');
     document.getElementById('res-sconto-base').innerText = `${baseDisc}% + ${extraDisc}%`;
-    document.getElementById('res-pz').innerText = qtyVenduta.toFixed(2) + (p.category === "Pietra" ? " mq/ml" : " pz");
+    document.getElementById('res-pz').innerText = qtyVenduta.toFixed(2) + (p.category === "Pietra" ? " MQ" : " pz");
     document.getElementById('res-vincolo').innerText = vincoloMsg;
     document.getElementById('res-p').innerText = "€" + totale.toLocaleString('it-IT', {minimumFractionDigits: 2});
     document.getElementById('iva-note').innerText = isPrivato ? "Incl. IVA 22% e Trasp." : "Escl. IVA, Incl. Trasp.";
 }
 
-// --- GESTIONALE (TAB LISTINI) ---
+// --- GESTIONALE ---
 function renderGestionale() {
     const c = document.getElementById('content');
     const b = document.getElementById('back-btn');
@@ -177,7 +171,6 @@ function renderGestionale() {
     lucide.createIcons();
 }
 
-// --- IMPORTAZIONE CSV ---
 async function importa(cat, gamma, e) {
     const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
@@ -188,10 +181,10 @@ async function importa(cat, gamma, e) {
         const idx = {
             nome: header.indexOf("nome"),
             prezzo: header.indexOf("prezzo_m2") !== -1 ? header.indexOf("prezzo_m2") : (header.indexOf("prezzo_pz") !== -1 ? header.indexOf("prezzo_pz") : header.indexOf("prezzo_unita")),
-            m2_scat: header.indexOf("m2_scatola"), m2_banc: header.indexOf("m2_bancale"),
-            pz_mq: header.indexOf("pz_m2"), pz_ml: header.indexOf("pz_ml"),
-            pz_scat: header.indexOf("pz_scatola"), pz_banc: header.indexOf("pz_bancale"),
-            sfuso: header.indexOf("sfuso"), pz_mq_p: header.indexOf("pz_m2_piatto"), pz_mq_c: header.indexOf("pz_m2_coltello")
+            m2_banc: header.indexOf("m2_bancale"), m2_scat: header.indexOf("m2_scatola"),
+            pz_mq: header.indexOf("pz_m2"), pz_banc: header.indexOf("pz_bancale"),
+            pz_scat: header.indexOf("pz_scatola"), sfuso: header.indexOf("sfuso"),
+            kg_banc: header.indexOf("kg_bancale")
         };
         const batch = [];
         await db.prodotti.where({ category: cat, range: gamma }).delete();
@@ -199,20 +192,13 @@ async function importa(cat, gamma, e) {
             const c = lines[i].split(/[,;]/).map(val => val.trim());
             if (!c[idx.nome]) continue;
             let item = { category: cat, range: gamma, name: c[idx.nome], price: parseFloat(c[idx.prezzo]?.replace(',', '.')) || 0, sfuso: idx.sfuso !== -1 ? c[idx.sfuso].toLowerCase() : 'no' };
-            if (gamma === "Pannelli preassemblati" || gamma === "Posa incerta") {
-                item.m2_scatola = parseFloat(c[idx.m2_scat]?.replace(',', '.')) || 1;
-                item.m2_bancale = parseFloat(c[idx.m2_banc]?.replace(',', '.')) || 999;
-                item.pz_ml = parseFloat(c[idx.pz_ml]?.replace(',', '.')) || 1;
-                item.pz_bancale = parseInt(c[idx.pz_banc]) || 1;
-            } else {
-                item.pz_mq = parseFloat(c[idx.pz_mq]?.replace(',', '.')) || 1;
-                item.pz_scatola = parseInt(c[idx.pz_scat]) || 0;
-                item.pz_bancale = parseInt(c[idx.pz_banc]) || 1;
-                if (gamma === "Fortis") {
-                    item.pz_mq_piatto = parseFloat(c[idx.pz_mq_p]?.replace(',', '.')) || 0;
-                    item.pz_mq_coltello = parseFloat(c[idx.pz_mq_c]?.replace(',', '.')) || 0;
-                }
-            }
+            
+            item.m2_bancale = parseFloat(c[idx.m2_banc]?.replace(',', '.')) || 999;
+            item.m2_scatola = parseFloat(c[idx.m2_scat]?.replace(',', '.')) || 1;
+            item.pz_mq = parseFloat(c[idx.pz_mq]?.replace(',', '.')) || 1;
+            item.pz_bancale = parseInt(c[idx.pz_banc]) || 1;
+            item.pz_scatola = parseInt(c[idx.pz_scat]) || 0;
+            
             batch.push(item);
         }
         await db.prodotti.bulkAdd(batch);
