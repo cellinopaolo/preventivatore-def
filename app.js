@@ -49,14 +49,33 @@ async function renderInterfacciaCalcolo(cat, gamma) {
         return;
     }
 
-    const htmlPosaFortis = gamma === "Fortis" ? `
-        <div class="space-y-2">
-            <label class="text-[9px] font-black uppercase text-slate-400 ml-4 italic">Tipo di Posa</label>
-            <select id="tipo-posa" class="w-full bg-orange-50 p-4 rounded-2xl font-black italic outline-none border-2 border-orange-100 focus:border-orange-500 appearance-none">
-                <option value="piatto">DI PIATTO (Standard)</option>
-                <option value="coltello">DI COLTELLO</option>
-            </select>
-        </div>` : "";
+    // Gestione selettori speciali per gamma
+    let htmlSpecial = "";
+    if (gamma === "Fortis") {
+        htmlSpecial = `
+            <div class="space-y-2">
+                <label class="text-[9px] font-black uppercase text-slate-400 ml-4 italic">Tipo di Posa</label>
+                <select id="tipo-posa" class="w-full bg-orange-50 p-4 rounded-2xl font-black italic outline-none border-2 border-orange-100 focus:border-orange-500 appearance-none">
+                    <option value="piatto">DI PIATTO (Standard)</option>
+                    <option value="coltello">DI COLTELLO</option>
+                </select>
+            </div>`;
+    } else if (gamma === "Posa incerta") {
+        htmlSpecial = `
+            <div class="grid grid-cols-2 gap-3">
+                <div class="space-y-2">
+                    <label class="text-[9px] font-black uppercase text-slate-400 ml-4 italic">Finitura Posa</label>
+                    <select id="finitura-pietra" onchange="toggleSfrido(this.value)" class="w-full bg-stone-100 p-4 rounded-2xl font-black italic outline-none border-2 border-transparent focus:border-stone-500 appearance-none">
+                        <option value="fugata">FUGATA</option>
+                        <option value="secco">A SECCO</option>
+                    </select>
+                </div>
+                <div id="box-sfrido" class="space-y-2 hidden">
+                    <label class="text-[9px] font-black uppercase text-orange-500 ml-4 italic">+ % Materiale</label>
+                    <input type="number" id="perc-sfrido" class="w-full bg-orange-50 p-4 rounded-2xl font-black italic outline-none border-2 border-orange-200 focus:border-orange-500 text-center" value="15">
+                </div>
+            </div>`;
+    }
 
     const unitOptions = gamma === "Posa incerta" ? 
         `<option value="auto">AUTO (M2/ML)</option><option value="pz">PEZZI</option>` :
@@ -71,7 +90,7 @@ async function renderInterfacciaCalcolo(cat, gamma) {
                     ${prodotti.map(p => `<option value='${JSON.stringify(p)}'>${p.name}</option>`).join('')}
                 </select>
             </div>
-            ${htmlPosaFortis}
+            ${htmlSpecial}
             <div class="grid grid-cols-2 gap-3">
                 <div class="relative">
                     <input type="number" id="q-main" class="w-full bg-slate-50 rounded-2xl p-4 text-2xl font-black text-center border focus:border-blue-500 outline-none italic" value="0">
@@ -108,15 +127,31 @@ async function renderInterfacciaCalcolo(cat, gamma) {
     lucide.createIcons();
 }
 
+// Helper per mostrare/nascondere lo sfrido
+function toggleSfrido(val) {
+    const box = document.getElementById('box-sfrido');
+    if (val === 'secco') box.classList.remove('hidden');
+    else box.classList.add('hidden');
+}
+
 // --- LOGICA DI CALCOLO COMMERCIALE ---
 function eseguiCalcoloCommerciale() {
     const p = JSON.parse(document.getElementById('select-prod').value);
-    const mainQty = parseFloat(document.getElementById('q-main').value) || 0;
+    let mainQty = parseFloat(document.getElementById('q-main').value) || 0;
     const extraQty = parseFloat(document.getElementById('q-extra').value) || 0;
     const unitType = document.getElementById('u-type').value;
     const extraDisc = parseFloat(document.getElementById('d-extra').value) || 0;
     const transport = parseFloat(document.getElementById('cost-trans').value) || 0;
     const isPrivato = document.getElementById('c-type').value === 'privato';
+
+    // Gestione Sfrido per Posa a Secco
+    if (p.range === "Posa incerta") {
+        const finitura = document.getElementById('finitura-pietra').value;
+        if (finitura === 'secco') {
+            const percSfrido = parseFloat(document.getElementById('perc-sfrido').value) || 0;
+            mainQty = mainQty * (1 + percSfrido / 100);
+        }
+    }
 
     let pzMqEffettivo = p.pz_mq;
     if (p.range === "Fortis") {
@@ -190,7 +225,7 @@ function eseguiCalcoloCommerciale() {
     document.getElementById('iva-note').innerText = isPrivato ? "Incl. IVA 22% e Trasp." : "Escl. IVA, Incl. Trasp.";
 }
 
-// --- GESTIONE LISTINI ---
+// --- GESTIONE LISTINI (INVARIATA) ---
 function renderGestionale() {
     const c = document.getElementById('content');
     document.getElementById('back-btn').classList.add('hidden');
