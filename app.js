@@ -1,3 +1,4 @@
+// Configurazione Database Locale
 const db = new Dexie("PreventiviDB");
 db.version(1).stores({ prodotti: "++id, category, range, name" });
 
@@ -7,6 +8,7 @@ const STRUTTURA = {
     "Legno": { gamme: ["Rivestimenti", "Pavimenti"], colore: "bg-amber-800", icona: "tree-deciduous" }
 };
 
+// Inizializzazione
 async function init() { renderCategorie(); lucide.createIcons(); }
 
 // --- NAVIGAZIONE ---
@@ -27,7 +29,7 @@ function renderGamme(cat) {
     const c = document.getElementById('content');
     const b = document.getElementById('back-btn');
     b.classList.remove('hidden'); b.onclick = renderCategorie;
-    c.innerHTML = `<h2 class="text-2xl font-black mb-6 uppercase italic text-slate-800">${cat}</h2>
+    c.innerHTML = `<h2 class="text-2xl font-black mb-6 uppercase italic text-slate-800 border-l-4 border-blue-600 pl-3">${cat}</h2>
         <div class="grid gap-3 italic font-bold text-slate-700 uppercase tracking-widest text-sm">
             ${STRUTTURA[cat].gamme.map(g => `
                 <button onclick="renderInterfacciaCalcolo('${cat}', '${g}')" class="bg-white p-6 rounded-2xl border-2 border-slate-100 flex justify-between items-center shadow-sm active:border-blue-500 transition-all">
@@ -37,80 +39,73 @@ function renderGamme(cat) {
     lucide.createIcons();
 }
 
-// --- CALCOLATORE CON LOGICA SFUSO/SCATOLA ---
+// --- INTERFACCIA CALCOLO ---
 async function renderInterfacciaCalcolo(cat, gamma) {
     const prodotti = await db.prodotti.where({ category: cat, range: gamma }).toArray();
     const c = document.getElementById('content');
     document.getElementById('back-btn').onclick = () => renderGamme(cat);
 
     if (prodotti.length === 0) {
-        c.innerHTML = `<div class="p-10 text-center opacity-30 font-bold uppercase">Carica il listino per ${gamma}</div>`;
+        c.innerHTML = `<div class="p-10 text-center opacity-30 font-bold uppercase italic">Nessun listino per ${gamma}</div>`;
         return;
     }
 
-    c.innerHTML = `
-        <div class="mb-4 italic">
-            <p class="text-[10px] font-black text-blue-600 uppercase mb-1">${cat} / ${gamma}</p>
-        </div>
+    const htmlPosaFortis = gamma === "Fortis" ? `
+        <div class="space-y-2">
+            <label class="text-[9px] font-black uppercase text-slate-400 ml-4 italic">Tipo di Posa</label>
+            <select id="tipo-posa" class="w-full bg-orange-50 p-4 rounded-2xl font-black italic outline-none border-2 border-orange-100 focus:border-orange-500 appearance-none">
+                <option value="piatto">DI PIATTO (Standard)</option>
+                <option value="coltello">DI COLTELLO</option>
+            </select>
+        </div>` : "";
 
+    c.innerHTML = `
+        <div class="mb-4 italic"><p class="text-[10px] font-black text-blue-600 uppercase">${cat} / ${gamma}</p></div>
         <div class="bg-white p-5 rounded-[2.5rem] border shadow-sm space-y-5">
             <div>
-                <label class="text-[9px] font-black uppercase text-slate-400 ml-4 italic">Modello</label>
+                <label class="text-[9px] font-black uppercase text-slate-400 ml-4 italic">Seleziona Modello</label>
                 <select id="select-prod" class="w-full bg-slate-100 p-4 rounded-2xl font-bold italic outline-none border-2 border-transparent focus:border-blue-500">
-                    ${prodotti.map(p => `<option value='${JSON.stringify(p)}'>${p.name}</option>`).join('')}
+                    ${prodotti.map(p => `<option value='${JSON.stringify(p)}'>${p.name} - €${p.price.toFixed(2)}</option>`).join('')}
                 </select>
             </div>
-
+            ${htmlPosaFortis}
             <div class="grid grid-cols-2 gap-3">
                 <div class="relative">
                     <input type="number" id="q-main" class="w-full bg-slate-50 rounded-2xl p-4 text-2xl font-black text-center border focus:border-blue-500 outline-none italic" value="0">
                     <label class="absolute -top-2 left-4 bg-slate-800 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase italic">Quantità</label>
                 </div>
-                <select id="u-type" class="w-full bg-slate-100 p-4 rounded-2xl font-black italic outline-none text-sm">
-                    <option value="mq">MQ</option>
-                    <option value="pz">PEZZI</option>
-                </select>
+                <select id="u-type" class="w-full bg-slate-100 p-4 rounded-2xl font-black italic outline-none text-sm"><option value="mq">MQ</option><option value="pz">PEZZI</option></select>
             </div>
-
             <div class="grid grid-cols-2 gap-3">
                 <div class="relative">
                     <input type="number" id="q-extra" class="w-full bg-slate-50 rounded-2xl p-4 text-xl font-black text-center border outline-none italic" value="0">
-                    <label class="absolute -top-2 left-4 bg-blue-600 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase italic">Extra (MQ o Pz)</label>
+                    <label class="absolute -top-2 left-4 bg-blue-600 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase italic">Extra</label>
                 </div>
                 <div class="relative">
                     <input type="number" id="d-extra" class="w-full bg-slate-50 rounded-2xl p-4 text-xl font-black text-center border outline-none italic" value="0">
                     <label class="absolute -top-2 left-4 bg-orange-500 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase italic">Sconto Extra %</label>
                 </div>
             </div>
-
             <div class="grid grid-cols-2 gap-3">
                 <div class="relative">
                     <input type="number" id="cost-trans" class="w-full bg-slate-50 rounded-2xl p-4 text-xl font-black text-center border outline-none italic" value="0">
                     <label class="absolute -top-2 left-4 bg-slate-500 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase italic">Trasporto €</label>
                 </div>
-                <select id="c-type" class="w-full bg-slate-100 p-4 rounded-2xl font-black italic outline-none text-[10px] uppercase">
-                    <option value="azienda">Azienda (Escl. IVA)</option>
-                    <option value="privato">Privato (Incl. IVA)</option>
-                </select>
+                <select id="c-type" class="w-full bg-slate-100 p-4 rounded-2xl font-black italic outline-none text-[10px] uppercase"><option value="azienda">Azienda</option><option value="privato">Privato</option></select>
             </div>
-
-            <button onclick="eseguiCalcoloCommerciale()" class="w-full bg-blue-600 text-white py-5 rounded-[2rem] font-black uppercase italic shadow-xl active:scale-95 transition-all">Calcola Preventivo</button>
-
-            <div id="risultato" class="hidden bg-slate-900 p-6 rounded-[2rem] text-white italic space-y-3 shadow-2xl animate-in fade-in zoom-in duration-300">
+            <button onclick="eseguiCalcoloCommerciale()" class="w-full bg-blue-600 text-white py-5 rounded-[2rem] font-black uppercase italic shadow-xl active:scale-95 transition-all">Calcola Totale</button>
+            <div id="risultato" class="hidden bg-slate-900 p-6 rounded-[2rem] text-white italic space-y-3 shadow-2xl animate-pulse-once">
                 <div class="flex justify-between text-[10px] uppercase opacity-60"><span>Sconto Composto</span> <span id="res-sconto-base"></span></div>
-                <div class="flex justify-between text-[10px] uppercase opacity-60"><span>Pezzi Venduti</span> <span id="res-pz"></span></div>
-                <div class="flex justify-between text-[10px] uppercase opacity-60"><span>Vincolo</span> <span id="res-vincolo"></span></div>
-                <div class="flex justify-between items-end pt-2 border-t border-white/10">
-                    <span class="text-xs font-black uppercase text-blue-400">TOTALE FINALE</span>
-                    <span id="res-p" class="text-3xl font-black tracking-tighter"></span>
-                </div>
+                <div class="flex justify-between text-[10px] uppercase opacity-60"><span>Pezzi Totali</span> <span id="res-pz"></span></div>
+                <div class="flex justify-between text-[10px] uppercase opacity-60"><span>Vincolo Logistico</span> <span id="res-vincolo"></span></div>
+                <div class="flex justify-between items-end pt-2 border-t border-white/10"><span class="text-xs font-black uppercase text-blue-400">TOTALE FINALE</span><span id="res-p" class="text-3xl font-black tracking-tighter"></span></div>
                 <p id="iva-note" class="text-[8px] uppercase text-center opacity-40 pt-2"></p>
             </div>
-        </div>
-    `;
+        </div>`;
     lucide.createIcons();
 }
 
+// --- LOGICA DI CALCOLO COMMERCIALE ---
 function eseguiCalcoloCommerciale() {
     const p = JSON.parse(document.getElementById('select-prod').value);
     const mainQty = parseFloat(document.getElementById('q-main').value) || 0;
@@ -120,50 +115,51 @@ function eseguiCalcoloCommerciale() {
     const transport = parseFloat(document.getElementById('cost-trans').value) || 0;
     const isPrivato = document.getElementById('c-type').value === 'privato';
 
-    // Conversione base in pezzi
-    let pzPrincipali = (unitType === 'mq') ? Math.ceil(mainQty * p.pz_mq) : mainQty;
-    let pzExtra = (unitType === 'mq') ? Math.ceil(extraQty * p.pz_mq) : extraQty;
-    let pzRichiesti = pzPrincipali + pzExtra;
-
-    // --- LOGICA VINCOLI VENDITA ---
-    let pzFinali = pzRichiesti;
-    let vincoloMsg = "Sfuso Libero";
-
-    if (p.sfuso === 'no') {
-        // Vincolo Bancale Completo
-        pzFinali = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale;
-        vincoloMsg = "Bancale Intero";
-    } else {
-        // Vincolo Pezzi per Scatola (se pz_scatola > 0)
-        if (p.pz_scatola > 0) {
-            pzFinali = Math.ceil(pzRichiesti / p.pz_scatola) * p.pz_scatola;
-            vincoloMsg = "Scatola Intera";
-        }
+    // Determina PZ/MQ per posa (solo Fortis)
+    let pzMqEffettivo = p.pz_mq;
+    let posaInfo = "";
+    if (p.range === "Fortis") {
+        const tipoPosa = document.getElementById('tipo-posa').value;
+        pzMqEffettivo = (tipoPosa === "coltello") ? p.pz_mq_coltello : p.pz_mq_piatto;
+        posaInfo = (tipoPosa === "coltello") ? "Coltello | " : "Piatto | ";
     }
 
-    // Calcolo Sconto Base
+    // Calcolo pezzi richiesti
+    let pzRichiesti = (unitType === 'mq') ? Math.ceil((mainQty + extraQty) * pzMqEffettivo) : (mainQty + extraQty);
+    let pzFinali = pzRichiesti;
+    let vincoloMsg = "";
+
+    // REGOLE GAMMA
+    if (p.range === "Genesis") {
+        pzFinali = (p.sfuso === 'no') ? Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale : Math.ceil(pzRichiesti / p.pz_scatola) * p.pz_scatola;
+        vincoloMsg = (p.sfuso === 'no') ? "Bancale Intero" : "Scatola Intera";
+    } else if (p.range === "Futura") {
+        vincoloMsg = "Vendita Libera";
+    } else if (p.range === "Croma") {
+        if (p.sfuso === 'no') { pzFinali = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale; vincoloMsg = "Bancale Intero"; }
+        else { vincoloMsg = "Vendita Libera"; }
+    } else if (p.range === "Fortis" || p.range === "Cotto") {
+        pzFinali = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale;
+        vincoloMsg = "Sempre Bancale Intero";
+    }
+
+    // Calcolo Sconti
     const baseDisc = (pzFinali >= p.pz_bancale) ? 50 : 45;
+    const priceScontato = p.price * (1 - baseDisc / 100) * (1 - extraDisc / 100);
+    const imponibile = (pzFinali * priceScontato) + transport;
+    const totale = isPrivato ? imponibile * 1.22 : imponibile; //
 
-    // Calcolo Sconto Composto (Cascata)
-    const priceScontatoBase = p.price * (1 - baseDisc / 100);
-    const priceScontatoFinale = priceScontatoBase * (1 - extraDisc / 100);
-    
-    const imponibileMerce = pzFinali * priceScontatoFinale;
-    const totaleImponibile = imponibileMerce + transport;
-
-    let finale = isPrivato ? totaleImponibile * 1.22 : totaleImponibile;
-
-    // Output
+    // Render Risultati
     const box = document.getElementById('risultato');
     box.classList.remove('hidden');
     document.getElementById('res-sconto-base').innerText = `${baseDisc}% + ${extraDisc}%`;
     document.getElementById('res-pz').innerText = pzFinali + " pz";
-    document.getElementById('res-vincolo').innerText = vincoloMsg;
-    document.getElementById('res-p').innerText = "€" + finale.toLocaleString('it-IT', {minimumFractionDigits: 2});
+    document.getElementById('res-vincolo').innerText = posaInfo + vincoloMsg;
+    document.getElementById('res-p').innerText = "€" + totale.toLocaleString('it-IT', {minimumFractionDigits: 2});
     document.getElementById('iva-note').innerText = isPrivato ? "Include IVA 22% e Trasporto" : "Prezzo IVA esclusa, include Trasporto";
 }
 
-// --- GESTIONALE CSV ---
+// --- GESTIONE LISTINI ---
 function renderGestionale() {
     const c = document.getElementById('content');
     document.getElementById('back-btn').classList.add('hidden');
@@ -175,7 +171,7 @@ function renderGestionale() {
                 <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border">
                     <span class="font-bold text-[10px] uppercase text-slate-500">${g}</span>
                     <input type="file" id="f-${cat}-${g}" accept=".csv" class="hidden" onchange="importa('${cat}','${g}',event)">
-                    <label for="f-${cat}-${g}" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-black uppercase text-[9px] cursor-pointer">Carica</label>
+                    <label for="f-${cat}-${g}" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-black uppercase text-[9px] cursor-pointer active:scale-95 transition-transform">Carica CSV</label>
                 </div>`).join('')}</div></div>`;
     }
     c.innerHTML = h + `</div>`;
@@ -191,20 +187,27 @@ async function importa(cat, gamma, e) {
         await db.prodotti.where({ category: cat, range: gamma }).delete();
         lines.forEach((line, i) => {
             const c = line.split(/[,;]/); 
-            if (c.length >= 8 && i > 0 && c[2]) {
-                batch.push({
-                    category: cat, range: gamma, name: c[2].trim(),
-                    price: parseFloat(c[3].replace(',', '.')) || 0,
-                    pz_mq: parseFloat(c[4]?.replace(',', '.')) || 1,
-                    pz_scatola: parseInt(c[5]) || 0,
-                    pz_bancale: parseInt(c[6]) || 1,
-                    kg_bancale: parseFloat(c[7]?.replace(',', '.')) || 0,
-                    sfuso: c[8] ? c[8].trim().toLowerCase() : 'si'
-                });
+            if (i > 0 && c[2]) {
+                let item = { category: cat, range: gamma, name: c[2].trim(), price: parseFloat(c[3]?.replace(',', '.')) || 0 };
+                if (gamma === "Fortis") { // Mapping speciale Fortis
+                    item.pz_mq_coltello = parseFloat(c[4]?.replace(',', '.')) || 0;
+                    item.pz_mq_piatto = parseFloat(c[5]?.replace(',', '.')) || 0;
+                    item.pz_bancale = parseInt(c[6]) || 1;
+                    item.kg_bancale = parseFloat(c[7]?.replace(',', '.')) || 0;
+                    item.sfuso = c[8] ? c[8].trim().toLowerCase() : 'no';
+                    item.pz_mq = item.pz_mq_piatto;
+                } else { // Mapping Standard
+                    item.pz_mq = parseFloat(c[4]?.replace(',', '.')) || 1;
+                    item.pz_scatola = parseInt(c[5]) || 0;
+                    item.pz_bancale = parseInt(c[6]) || 1;
+                    item.kg_bancale = parseFloat(c[7]?.replace(',', '.')) || 0;
+                    item.sfuso = c[8] ? c[8].trim().toLowerCase() : 'si';
+                }
+                batch.push(item);
             }
         });
         await db.prodotti.bulkAdd(batch);
-        alert(`Aggiornato: ${gamma}`);
+        alert(`Aggiornato listino ${gamma}`);
         renderGestionale();
     };
     reader.readAsText(file);
