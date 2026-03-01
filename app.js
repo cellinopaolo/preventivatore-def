@@ -14,14 +14,13 @@ async function init() { renderCategorie(); lucide.createIcons(); }
 function renderCategorie() {
     const c = document.getElementById('content');
     document.getElementById('back-btn').classList.add('hidden');
-    c.innerHTML = `
-        <div class="grid gap-4 italic font-black text-xl uppercase tracking-tighter">
-            ${Object.keys(STRUTTURA).map(key => `
-                <button onclick="renderGamme('${key}')" class="${STRUTTURA[key].colore} p-8 rounded-[2rem] text-white flex items-center gap-6 shadow-lg active:scale-95 transition-all w-full">
-                    <div class="bg-white/20 p-4 rounded-2xl"><i data-lucide="${STRUTTURA[key].icona}"></i></div>
-                    <span>${key}</span>
-                </button>`).join('')}
-        </div>`;
+    c.innerHTML = `<div class="grid gap-4 italic font-black text-xl uppercase tracking-tighter">
+        ${Object.keys(STRUTTURA).map(key => `
+            <button onclick="renderGamme('${key}')" class="${STRUTTURA[key].colore} p-8 rounded-[2rem] text-white flex items-center gap-6 shadow-lg active:scale-95 transition-all w-full">
+                <div class="bg-white/20 p-4 rounded-2xl"><i data-lucide="${STRUTTURA[key].icona}"></i></div>
+                <span>${key}</span>
+            </button>`).join('')}
+    </div>`;
     lucide.createIcons();
 }
 
@@ -77,7 +76,7 @@ async function renderInterfacciaCalcolo(cat, gamma) {
     lucide.createIcons();
 }
 
-// --- LOGICA DI CALCOLO COMMERCIALE ---
+// --- LOGICA DI CALCOLO ---
 function eseguiCalcoloCommerciale() {
     const p = JSON.parse(document.getElementById('select-prod').value);
     let mainQtyInput = parseFloat(document.getElementById('q-main').value) || 0;
@@ -94,7 +93,7 @@ function eseguiCalcoloCommerciale() {
     }
 
     let qtyVenduta = 0;
-    let vincoloMsg = "";
+    let vincoloMsg = "Vendita Libera";
     let baseDisc = 45;
 
     if (p.range === "Pannelli preassemblati") {
@@ -112,17 +111,22 @@ function eseguiCalcoloCommerciale() {
             vincoloMsg = "Bancale Intero";
         } else {
             qtyVenduta = totalQty;
-            vincoloMsg = "Vendita Libera";
         }
         baseDisc = (qtyVenduta >= m2banc) ? 50 : 45;
     }
+    else if (p.range === "Tetti") {
+        const pzMq = parseFloat(p.pz_mq) || 1;
+        const pzBanc = parseInt(p.pz_bancale) || 1;
+        let pzRichiesti = (unitType === 'mq') ? Math.ceil((qtyLavorazione + extraQty) * pzMq) : (qtyLavorazione + extraQty);
+        qtyVenduta = pzRichiesti;
+        baseDisc = (qtyVenduta >= pzBanc) ? 50 : 45;
+    }
     else if (p.range === "Posa incerta" || p.range === "Taglio rettangolare") {
         qtyVenduta = qtyLavorazione + extraQty;
-        vincoloMsg = "Vendita Libera";
         baseDisc = (qtyVenduta >= (parseFloat(p.m2_bancale) || 999)) ? 50 : 45;
     } 
     else {
-        // MATTONI (GENESIS, CROMA, ETC)
+        // MATTONI
         let pzMq = p.pz_mq;
         if (p.range === "Fortis") {
             pzMq = (document.getElementById('tipo-posa').value === "coltello") ? p.pz_mq_coltello : p.pz_mq_piatto;
@@ -138,7 +142,7 @@ function eseguiCalcoloCommerciale() {
         } else if (p.range === "Fortis" || p.range === "Cotto") {
             qtyVenduta = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale;
             vincoloMsg = "Bancale Intero";
-        } else { vincoloMsg = "Vendita Libera"; }
+        }
         baseDisc = (qtyVenduta >= p.pz_bancale) ? 50 : 45;
     }
 
@@ -148,7 +152,8 @@ function eseguiCalcoloCommerciale() {
 
     document.getElementById('risultato').classList.remove('hidden');
     document.getElementById('res-sconto-base').innerText = `${baseDisc}% + ${extraDisc}%`;
-    document.getElementById('res-pz').innerText = qtyVenduta.toFixed(2) + (p.category === "Pietra" ? " MQ" : " pz");
+    const labelUnit = (p.range === "Tetti" || p.category === "Mattoni") ? " pz" : " MQ";
+    document.getElementById('res-pz').innerText = qtyVenduta.toFixed(2) + labelUnit;
     document.getElementById('res-vincolo').innerText = vincoloMsg;
     document.getElementById('res-p').innerText = "€" + totale.toLocaleString('it-IT', {minimumFractionDigits: 2});
     document.getElementById('iva-note').innerText = isPrivato ? "Incl. IVA 22% e Trasp." : "Escl. IVA, Incl. Trasp.";
@@ -183,27 +188,23 @@ async function importa(cat, gamma, e) {
         const header = lines[0].split(/[,;]/).map(h => h.trim().toLowerCase());
         const idx = {
             nome: header.indexOf("nome"),
-            prezzo: header.indexOf("prezzo_m2") !== -1 ? header.indexOf("prezzo_m2") : header.indexOf("prezzo_unita"),
-            m2_banc: header.indexOf("m2_bancale"), m2_scat: header.indexOf("m2_scatola"),
+            prezzo: header.indexOf("prezzo_pz") !== -1 ? header.indexOf("prezzo_pz") : (header.indexOf("prezzo_m2") !== -1 ? header.indexOf("prezzo_m2") : header.indexOf("prezzo_unita")),
             pz_mq: header.indexOf("pz_m2"), pz_banc: header.indexOf("pz_bancale"),
-            pz_scat: header.indexOf("pz_scatola"), sfuso: header.indexOf("sfuso")
+            m2_banc: header.indexOf("m2_bancale"), m2_scat: header.indexOf("m2_scatola"),
+            pz_scat: header.indexOf("pz_scatola"), sfuso: header.indexOf("sfuso"),
+            kg_banc: header.indexOf("kg_bancale")
         };
         const batch = [];
         await db.prodotti.where({ category: cat, range: gamma }).delete();
         for(let i = 1; i < lines.length; i++) {
             const c = lines[i].split(/[,;]/).map(val => val.trim());
             if (!c[idx.nome]) continue;
-            let item = { 
-                category: cat, 
-                range: gamma, 
-                name: c[idx.nome], 
-                price: parseFloat(c[idx.prezzo]?.replace(',', '.')) || 0, 
-                sfuso: idx.sfuso !== -1 ? c[idx.sfuso].toLowerCase() : 'sì' 
-            };
-            item.m2_bancale = parseFloat(c[idx.m2_banc]?.replace(',', '.')) || 999;
-            item.m2_scatola = parseFloat(c[idx.m2_scat]?.replace(',', '.')) || 1;
+            let item = { category: cat, range: gamma, name: c[idx.nome], price: parseFloat(c[idx.prezzo]?.replace(',', '.')) || 0, sfuso: idx.sfuso !== -1 ? c[idx.sfuso].toLowerCase() : 'sì' };
             item.pz_mq = parseFloat(c[idx.pz_mq]?.replace(',', '.')) || 1;
             item.pz_bancale = parseInt(c[idx.pz_banc]) || 1;
+            item.m2_bancale = parseFloat(c[idx.m2_banc]?.replace(',', '.')) || 999;
+            item.m2_scatola = parseFloat(c[idx.m2_scat]?.replace(',', '.')) || 1;
+            item.pz_scatola = parseInt(c[idx.pz_scat]) || 0;
             batch.push(item);
         }
         await db.prodotti.bulkAdd(batch);
