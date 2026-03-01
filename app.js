@@ -1,3 +1,4 @@
+// Configurazione Database Locale (Dexie.js)
 const db = new Dexie("PreventiviDB");
 db.version(1).stores({ prodotti: "++id, category, range, name" });
 
@@ -9,7 +10,7 @@ const STRUTTURA = {
 
 async function init() { renderCategorie(); lucide.createIcons(); }
 
-// --- NAVIGAZIONE (INVARIATA) ---
+// --- NAVIGAZIONE ---
 function renderCategorie() {
     const c = document.getElementById('content');
     document.getElementById('back-btn').classList.add('hidden');
@@ -37,7 +38,7 @@ function renderGamme(cat) {
     lucide.createIcons();
 }
 
-// --- INTERFACCIA CALCOLO (INVARIATA) ---
+// --- INTERFACCIA CALCOLO ---
 async function renderInterfacciaCalcolo(cat, gamma) {
     const prodotti = await db.prodotti.where({ category: cat, range: gamma }).toArray();
     const c = document.getElementById('content');
@@ -122,10 +123,9 @@ function eseguiCalcoloCommerciale() {
     let pzRichiesti = (unitType === 'mq') ? Math.ceil((mainQty + extraQty) * pzMqEffettivo) : (mainQty + extraQty);
     let pzFinali = pzRichiesti;
     let vincoloMsg = "";
-    
-    // Pulizia estrema del valore sfuso
     const sfusoVal = (p.sfuso || "").toString().trim().toLowerCase();
 
+    // APPLICAZIONE REGOLE PER GAMMA
     if (p.range === "Croma") {
         if (sfusoVal === 'no') {
             pzFinali = Math.ceil(pzRichiesti / p.pz_bancale) * p.pz_bancale;
@@ -158,7 +158,7 @@ function eseguiCalcoloCommerciale() {
     document.getElementById('iva-note').innerText = isPrivato ? "Incl. IVA 22% e Trasp." : "Escl. IVA, Incl. Trasp.";
 }
 
-// --- GESTIONE LISTINI (IMPORTAZIONE INTELLIGENTE) ---
+// --- GESTIONE LISTINI ---
 function renderGestionale() {
     const c = document.getElementById('content');
     document.getElementById('back-btn').classList.add('hidden');
@@ -185,7 +185,6 @@ async function importa(cat, gamma, e) {
         const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
         const header = lines[0].split(/[,;]/).map(h => h.trim().toLowerCase());
         
-        // Trova gli indici delle colonne dinamicamente per evitare errori di posizione
         const idx = {
             nome: header.indexOf("nome"),
             prezzo: header.indexOf("prezzo_pz"),
@@ -194,6 +193,7 @@ async function importa(cat, gamma, e) {
             pz_mq_c: header.indexOf("pz_m2_coltello"),
             pz_scatola: header.indexOf("pz_scatola"),
             pz_bancale: header.indexOf("pz_bancale"),
+            kg_bancale: header.indexOf("kg_bancale"),
             sfuso: header.indexOf("sfuso")
         };
 
@@ -212,15 +212,26 @@ async function importa(cat, gamma, e) {
                 sfuso: idx.sfuso !== -1 ? c[idx.sfuso].toLowerCase() : 'no'
             };
 
+            // MAPPATURA DIFFERENZIATA PER GAMMA
             if (gamma === "Fortis") {
                 item.pz_mq_piatto = parseFloat(c[idx.pz_mq_p]?.replace(',', '.')) || 0;
                 item.pz_mq_coltello = parseFloat(c[idx.pz_mq_c]?.replace(',', '.')) || 0;
                 item.pz_bancale = parseInt(c[idx.pz_bancale]) || 1;
                 item.pz_mq = item.pz_mq_piatto;
-            } else {
+            } 
+            else if (gamma === "Cotto" || gamma === "Croma") {
+                // Per Cotto e Croma ignoriamo pz_scatola per evitare scalamenti di colonne
+                item.pz_mq = parseFloat(c[idx.pz_mq]?.replace(',', '.')) || 1;
+                item.pz_bancale = parseInt(c[idx.pz_bancale]) || 1;
+                item.kg_bancale = parseFloat(c[idx.kg_bancale]?.replace(',', '.')) || 0;
+                item.pz_scatola = 0;
+            } 
+            else {
+                // Genesis e Futura standard
                 item.pz_mq = parseFloat(c[idx.pz_mq]?.replace(',', '.')) || 1;
                 item.pz_scatola = idx.pz_scatola !== -1 ? parseInt(c[idx.pz_scatola]) : 0;
                 item.pz_bancale = parseInt(c[idx.pz_bancale]) || 1;
+                item.kg_bancale = parseFloat(c[idx.kg_bancale]?.replace(',', '.')) || 0;
             }
             batch.push(item);
         }
